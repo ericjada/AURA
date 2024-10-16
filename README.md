@@ -39,6 +39,7 @@ For a more focused and controlled conversation with the LLaMA model, users can u
 *   **Dice Rolling:** Roll virtual dice with custom modifiers using the `/roll` command, supporting formats like "NdN" and "NdN+M". The command includes input validation to prevent invalid rolls and limits the number of dice for practicality.
 *   **Coin Flip:** Make quick decisions or have some fun with the `/coinflip` command.
 *   **Magic 8-Ball:** Seek advice or engage in lighthearted amusement with the `/eightball` command.
+*   **More to come**
 
 ### Birthday Management
 
@@ -153,7 +154,7 @@ Throughout the development of this Discord bot project, I utilized the assistanc
 - [Built with Llama](https://llama3.org)
 - [LLaVA](https://github.com/haotian-liu/LLaVA/tree/main)
 
-## Licenses
+## 3P Licenses
 
 This project integrates third-party APIs and models which are licensed under their respective terms. You can find the licenses for these integrations here:
 
