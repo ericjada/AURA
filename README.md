@@ -95,8 +95,8 @@ The bot automatically logs all interactions and commands executed by users. Logs
 ## Additional Resources
 
 - [Ollama API Documentation](https://ollama.com)
-- [Built with Llama](https://llama3.org) - Built with Llama
-- [LLava](https://github.com/haotian-liu/LLaVA/tree/main) Additionally, the project leverages a powerful vision-language model, for analyzing and processing multimodal data inputs. This integration has expanded the bot's capabilities, enabling it to respond to both textual and visual prompts with context-aware interactions.
+- [Built with Llama](https://llama3.org)
+- [LLava](https://github.com/haotian-liu/LLaVA/tree/main)
 
 ## Licenses
 
