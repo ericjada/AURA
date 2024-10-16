@@ -65,8 +65,6 @@ Thank you for your support!
 
 Throughout the development of this Discord bot project, I utilized the assistance of ChatGPT to brainstorm and refine key features like the AURA assistant and mini-games integration. With the help of ChatGPT's insights, I was able to enhance the bot's interaction logic and create a more user-friendly experience.
 
-Additionally, the project leverages LLava, a powerful vision-language model, for analyzing and processing multimodal data inputs. This integration has expanded the bot's capabilities, enabling it to respond to both textual and visual prompts with context-aware interactions.
-
 ## Prerequisites
 
 Before running the bot, you will need the following:
@@ -82,102 +80,9 @@ You can install all the required Python packages by running:
 ```bash
 pip install -r requirements.txt
 ```
-
-Here is a list of the main Python libraries used:
-- `discord.py`: For interacting with Discord.
-- `ollama`: The API client for communicating with Ollama models.
-- `sqlite3`: For managing local databases used for logging and birthday tracking.
-
-### Additional APIs
-- **Ollama API**: Used for generating natural language responses. Learn more at [Ollama](https://ollama.com).
-- **Llama3.2**: Used for integrating with more advanced language models.
-
-## Files Overview
-
-### 1. `bot.py`
-The main driver file for the Discord bot, containing:
-- Interaction logic with the Ollama API.
-- Memory management for conversation history.
-- Command handling for user input.
-
-### 2. `AURA.py`
-Defines the behavior of the AURA assistant, handling personalized interactions and specific commands tailored for AURA's use cases.
-
-### 3. `birthday.py`
-Manages user birthdays:
-- Allows users to set their birthday.
-- Sends notifications when a user's birthday is near.
-
-### 4. `chat.py`
-Handles conversation-related commands and interaction:
-- Manages conversation states and logs.
-- Ensures context is maintained during long conversations.
-
-### 5. `games.py`
-A collection of mini-games, allowing users to play through Discord commands.
-
-### 6. `general.py`
-Contains general utility commands, such as:
-- `whois`: Fetches user information.
-- Command logging: Keeps track of executed commands for auditing.
-
-### 7. `info.py`
-Provides information about the bot, the server, and users, offering details like:
-- Server information.
-- User profile embedding.
-
-## Setup Instructions
-
-1. **Clone the Repository**
-
-   ```bash
-   git clone https://github.com/your-username/project-name.git
-   ```
-
-2. **Install Dependencies**
-
-   Install all the necessary libraries using the following command:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure Environment Variables**
-
-   Create a `.env` file with your Discord bot token and API keys:
-
-   ```env
-   DISCORD_TOKEN=your-discord-bot-token
-   OLLAMA_API_KEY=your-ollama-api-key
-   ```
-
-4. **Run the Bot**
-
-   Once everything is set up, you can start the bot by running:
-
-   ```bash
-   python bot.py
-   ```
-
 ## Available Commands
 
-### Chat Commands
-- `/chat <message>`: Start a conversation with the bot. The bot remembers the conversation for context-aware responses.
-
-### AURA Commands
-- `/aura <command>`: Interact with the virtual assistant AURA.
-
-### Birthday Commands
-- `/birthday set <date>`: Set your birthday.
-- `/birthday notify`: Get notified when a user's birthday is approaching.
-
-### Games
-- `/game start <game_name>`: Start a mini-game.
-- `/game list`: View the list of available games.
-
-### Info Commands
-- `/whois <user>`: Fetch detailed information about a user.
-- `/serverinfo`: Fetch detailed information about the server.
+W.I.P.
 
 ## Logging
 
@@ -191,6 +96,7 @@ The bot automatically logs all interactions and commands executed by users. Logs
 
 - [Ollama API Documentation](https://ollama.com)
 - [Built with Llama](https://llama3.org)
+- [LLava](https://github.com/haotian-liu/LLaVA/tree/main) Additionally, the project leverages a powerful vision-language model, for analyzing and processing multimodal data inputs. This integration has expanded the bot's capabilities, enabling it to respond to both textual and visual prompts with context-aware interactions.
 
 ## Licenses
 
@@ -198,6 +104,7 @@ This project integrates third-party APIs and models which are licensed under the
 
 - [Ollama API License](https://github.com/ollama/ollama/blob/main/LICENSE)
 - [Llama3.2 License](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE)
+- [LLaVA](https://github.com/haotian-liu/LLaVA/blob/main/LICENSE)
 
 ## Contributing
 
