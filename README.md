@@ -22,6 +22,33 @@ If you enjoy my work and would like to support my projects, consider making a do
     <br />
 </p>
 
+<p align="center">
+    <img src="./group_memories/AURA_Images/btc-address.png" alt="Donate BTC via QR code" />
+    <br />
+    <a href="bitcoin:bc1qwky9tu333yszy0jxep93aqnfuh3qw5uykwrk3x">Donate BTC</a>
+    <br />
+</p>
+
+<p align="center">
+    <img src="./group_memories/AURA_Images/eth-address.png" alt="Donate ETH via QR code" />
+    <br />
+    <a href="ethereum:0xb9A5b1B571D760fb508cF0D12ccDDcCC6b232dBe">Donate ETH</a>
+    <br />
+</p>
+
+<p align="center">
+    <img src="./group_memories/AURA_Images/doge-address.png" alt="Donate DOGE via QR code" />
+    <br />
+    <a href="bitcoin:DTNdC9zrv3aHZB64ukMZZw3Nt8RQ2NoUeU">Donate DOGE</a>
+    <br />
+</p>
+
+<p align="center">
+    <img src="./group_memories/AURA_Images/xrp-address.png" alt="Donate XRP via QR code" />
+    <br />
+    <a href="ripple:rHzob7LN3usgbEYzREiNRHZUgeFvHK1dhr">Donate XRP</a>
+    <br />
+</p>
 Thank you for your support!
 
 ## Features
