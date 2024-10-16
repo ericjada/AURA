@@ -148,7 +148,7 @@ The bot automatically logs all interactions and commands executed by users. Logs
 ## Additional Resources
 
 - [Ollama API Documentation](https://ollama.com)
-- [Llama3.2 Documentation](https://llama3.org)
+- [Built with Llama](https://llama3.org)
 
 ## Licenses
 
