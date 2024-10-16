@@ -96,7 +96,7 @@ The bot automatically logs all interactions and commands executed by users. Logs
 
 - [Ollama API Documentation](https://ollama.com)
 - [Built with Llama](https://llama3.org)
-- [LLava](https://github.com/haotian-liu/LLaVA/tree/main)
+- [LLaVA](https://github.com/haotian-liu/LLaVA/tree/main)
 
 ## Licenses
 
