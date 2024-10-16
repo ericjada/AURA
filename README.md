@@ -9,6 +9,20 @@ This project is a feature-rich Discord bot that integrates with the Ollama API t
 
 This project is a continuous work in progress. Features, functionality, and documentation may change as the development evolves. While the bot is fully operational, there may be ongoing updates, improvements, and bug fixes. Please check back regularly for the latest updates, and feel free to contribute or report issues. Your feedback and participation are highly appreciated!
 
+# Support My Projects
+
+If you enjoy my work and would like to support my projects, consider making a donation. Your contributions help me continue developing new projects. Every little bit helps!
+
+<p align="center">
+    <a href="https://www.paypal.com/donate/?hosted_button_id=NSFMYDYRMWMDY">
+        <img src="./group_memories/AURA_Images/paypal.png" alt="Donate via PayPal" />
+    </a>
+    <br />
+    <a href="https://www.paypal.com/donate/?hosted_button_id=NSFMYDYRMWMDY">Donate via PayPal</a>
+    <br />
+</p>
+
+Thank you for your support!
 
 ## Features
 
