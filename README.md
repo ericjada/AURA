@@ -1,9 +1,14 @@
 
-# Discord Bot Project with Ollama API and Games Integration
+# Discord Bot Project with Ollama (llama3.2)
 
 ## Overview
 
 This project is a feature-rich Discord bot that integrates with the Ollama API to create dynamic conversations and a variety of additional features like games, birthday reminders, and server information. The bot is designed to interact intelligently using language models, handle user-specific commands, and keep logs of interactions.
+
+## Disclaimer
+
+This project is a continuous work in progress. Features, functionality, and documentation may change as the development evolves. While the bot is fully operational, there may be ongoing updates, improvements, and bug fixes. Please check back regularly for the latest updates, and feel free to contribute or report issues. Your feedback and participation are highly appreciated!
+
 
 ## Features
 
@@ -13,6 +18,12 @@ This project is a feature-rich Discord bot that integrates with the Ollama API t
 - **Mini-Games**: Engage users with fun, interactive mini-games.
 - **User & Server Information**: Provides server and user information through custom commands.
 - **Command Logging**: Logs all command usages and bot interactions for auditing purposes.
+
+## Collaboration and AI Integration
+
+Throughout the development of this Discord bot project, I utilized the assistance of ChatGPT to brainstorm and refine key features like the AURA assistant and mini-games integration. With the help of ChatGPT's insights, I was able to enhance the bot's interaction logic and create a more user-friendly experience.
+
+Additionally, the project leverages LLava, a powerful vision-language model, for analyzing and processing multimodal data inputs. This integration has expanded the bot's capabilities, enabling it to respond to both textual and visual prompts with context-aware interactions.
 
 ## Prerequisites
 
@@ -139,6 +150,13 @@ The bot automatically logs all interactions and commands executed by users. Logs
 - [Ollama API Documentation](https://ollama.com)
 - [Llama3.2 Documentation](https://llama3.org)
 
+## Licenses
+
+This project integrates third-party APIs and models which are licensed under their respective terms. You can find the licenses for these integrations here:
+
+- [Ollama API License](https://github.com/ollama/ollama/blob/main/LICENSE)
+- [Llama3.2 License](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE)
+
 ## Contributing
 
 Contributions are welcome! Please follow the established code style and open a pull request with your changes.
@@ -146,4 +164,3 @@ Contributions are welcome! Please follow the established code style and open a p
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
-
