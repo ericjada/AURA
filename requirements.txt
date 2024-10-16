@@ -1,0 +1,15 @@
+textblob
+re
+discord.ext
+json
+datetime
+ollama
+random
+difflib
+dotenv
+discord.py
+asyncio
+pathlib
+subprocess
+os
+spacy

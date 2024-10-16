@@ -1,0 +1,8 @@
+token.env
+/cogs/__pycache__
+/user_memories
+
+group_memories/AURA.py_content.md
+group_memories/aura_memory.db
+group_memories/working_AURA.py_content.md
+/uploaded_files
