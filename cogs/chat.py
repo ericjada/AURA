@@ -115,7 +115,8 @@ class Chat(commands.Cog):
             # Add the user prompt to the conversation history
             memory_data['history'].append({'role': 'user', 'content': prompt})
 
-            await interaction.response.send_message("🤔 I'm thinking... Please hold on!")
+            # Acknowledge the interaction and show a "thinking" indicator
+            await interaction.response.defer(thinking=True)
 
             try:
                 # Prepare the message for the Ollama API, including user's conversation history

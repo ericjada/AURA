@@ -21,18 +21,18 @@ class Games(commands.Cog):
         self.conn = sqlite3.connect('./group_memories/aura_memory.db')
         self.active_blackjack_games = {}  # Key: (guild_id, channel_id), Value: BlackjackGame instance
 
-
     @discord.app_commands.command(name="balance", description="Check your AURAcoin balance.")
     async def balance(self, interaction: discord.Interaction):
         """Checks the user's AURAcoin balance and grants a daily bonus if eligible."""
         user_id = interaction.user.id
+        await interaction.response.defer(thinking=True)  # Add defer to show 'thinking' indicator
         # Check and grant daily bonus if eligible
         daily_bonus_granted = self.check_and_grant_daily_bonus(user_id)
         balance = self.get_auracoin_balance(user_id)
         if daily_bonus_granted:
-            await interaction.response.send_message(f"You have received your daily bonus of 100 AC!\nYour AURAcoin balance is: {balance} AC")
+            await interaction.followup.send(f"You have received your daily bonus of 100 AC!\nYour AURAcoin balance is: {balance} AC")
         else:
-            await interaction.response.send_message(f"Your AURAcoin balance is: {balance} AC")
+            await interaction.followup.send(f"Your AURAcoin balance is: {balance} AC")
 
         # Log the command usage
         self.log_command_usage(interaction, "balance", "", f"Balance: {balance} AC")
@@ -132,22 +132,24 @@ class Games(commands.Cog):
 
         key = (guild_id, channel_id)
 
+        await interaction.response.defer(thinking=True)  # Add defer to show 'thinking' indicator
+
         # Check if there's an active game
         if key not in self.active_blackjack_games:
-            await interaction.response.send_message("There is no active Blackjack game to bet on. Start one with `/blackjack`.")
+            await interaction.followup.send("There is no active Blackjack game to bet on. Start one with `/blackjack`.")
             return
 
         game = self.active_blackjack_games[key]
         if user.id not in game.players:
-            await interaction.response.send_message("You need to join the game first using `/join`.")
+            await interaction.followup.send("You need to join the game first using `/join`.")
             return
 
         # Place the bet
         try:
             game.place_bet(user.id, amount)
-            await interaction.response.send_message(f"{user.mention} has placed a bet of {amount} AC.")
+            await interaction.followup.send(f"{user.mention} has placed a bet of {amount} AC.")
         except ValueError as e:
-            await interaction.response.send_message(str(e))
+            await interaction.followup.send(str(e))
             return
 
         # Log the command usage
@@ -180,16 +182,16 @@ class Games(commands.Cog):
         key = (guild_id, channel_id)
 
         # Acknowledge the interaction to prevent timeout
-        await interaction.response.defer()
+        await interaction.response.defer(thinking=True)
 
         # Check if there's an active game
         if key not in self.active_blackjack_games:
-            await interaction.response.send_message("There is no active Blackjack game to play. Start one with `/blackjack`.")
+            await interaction.followup.send("There is no active Blackjack game to play. Start one with `/blackjack`.")
             return
 
         game = self.active_blackjack_games[key]
         if user.id not in game.players_in_turn:
-            await interaction.response.send_message("It's not your turn or you've already stood.")
+            await interaction.followup.send("It's not your turn or you've already stood.")
             return
 
         # Player takes a card
@@ -219,16 +221,16 @@ class Games(commands.Cog):
         key = (guild_id, channel_id)
 
         # Acknowledge the interaction to prevent timeout
-        await interaction.response.defer()
+        await interaction.response.defer(thinking=True)
 
         # Check if there's an active game
         if key not in self.active_blackjack_games:
-            await interaction.response.send_message("There is no active Blackjack game to play. Start one with `/blackjack`.")
+            await interaction.followup.send("There is no active Blackjack game to play. Start one with `/blackjack`.")
             return
 
         game = self.active_blackjack_games[key]
         if user.id not in game.players_in_turn:
-            await interaction.response.send_message("It's not your turn or you've already stood.")
+            await interaction.followup.send("It's not your turn or you've already stood.")
             return
 
         game.players_in_turn.remove(user.id)
