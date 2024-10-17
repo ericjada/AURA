@@ -127,15 +127,15 @@ class AURAcoin(commands.Cog):
         """
         timestamp = datetime.now().isoformat()
         user_id = interaction.user.id
-        guild_id = interaction.guild.id if interaction.guild else None
         username = interaction.user.name
 
+        # Log only by user_id, remove guild_id to prevent FOREIGN KEY constraint failures
         try:
             with self.conn:
                 self.conn.execute('''
-                    INSERT INTO logs (log_type, log_message, timestamp, guild_id, user_id, username)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', ('COMMAND_USAGE', f"({username}) executed {command_name}.", timestamp, guild_id, user_id, username))
+                    INSERT INTO logs (log_type, log_message, timestamp, user_id, username)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', ('COMMAND_USAGE', f"({username}) executed {command_name}.", timestamp, user_id, username))
         except sqlite3.IntegrityError as e:
             print(f"Database integrity error in log_command_usage: {e}")
             # Not critical, so we don't raise an exception
