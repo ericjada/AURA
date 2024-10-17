@@ -5,84 +5,59 @@
 
 Aura is a Discord bot built using the `discord.py` library and powered by the Ollama large language model. Aura offers a suite of features designed to enhance user interaction and provide entertainment within a Discord server. It leverages SQLite for persistent storage of user data, including birthdays, conversation history, and command logs. The bot is designed to be modular, with each feature set implemented as a separate "cog" for easy maintenance and expansion. 
 
-## Features
-Aura provides a variety of features, categorized into the following sections:
-Chat and AI Interaction:
-●
-Chat with LLaMA: Users can have conversations with the LLaMA language model using the /chat command.
-●
-System Prompt Setting: Users can customize the initial system prompt for their chat sessions using the /set_prompt command.
-●
-Conversation Memory Management: Users can reset their conversation history using the /reset_memory command.
-Server Information and User Profiles:
-●
-Server Insights: Obtain detailed information about the server using the /serverinfo command. This includes server ID, member count, and creation date.
-●
-User Profiles: View comprehensive user profiles with the /whois command, displaying user ID, status, and join date.
-Games and Entertainment:
-●
-Rock-Paper-Scissors: Compete against other users in Rock-Paper-Scissors using AURAcoin as bets.
-○
-Use /rps_challenge @[user] [amount] to challenge a user.
-○
-Use /rps_accept to accept a challenge.
-○
-Use /rps_decline to decline a challenge.
-○
-Use /rps_choice [choice] to choose rock, paper, or scissors in an active game.
-○
-Use /rps_rules to view the rules.
-●
-Dice Rolling: Roll virtual dice with custom modifiers using the /roll command, supporting formats like "NdN" and "NdN+M". The command includes input validation to prevent invalid rolls and limits the number of dice for practicality.
-●
-Coin Flip: Make quick decisions or have some fun with the /coinflip command.
-●
-Dice Duels: Engage in dice duels with other players using AURAcoin as bets.
-○
-Use /dice_duel_challenge @[user] [amount] [dice] to challenge a user.
-○
-Use /dice_duel_accept to accept a challenge.
-○
-Use /dice_duel_decline to decline a challenge.
-○
-Use /dice_duel_cancel to cancel a challenge you sent.
-●
-Duels:
-○
-Use /duel_challenge @[user] [amount] to challenge a user.
-○
-Use /duel_accept to accept a challenge.
-○
-Use /duel_decline to decline a challenge.
-○
-Use /duel_attack to attack during your turn.
-○
-Use /duel_leaderboard to view the leaderboard.
-○
-Use /duel_rules to view the rules.
-Birthdays:
-●
-Birthday Management: Users can set their birthdays using the /set_birthday [date] command, where [date] is in YYYY-MM-DD format.
-●
-Birthday Countdown: Check the countdown to a user's birthday using the /birthday_countdown command, optionally specifying a user with @[user].
-●
-Birthday Wishes: The bot automatically sends birthday wishes to users on their birthdays.
-AURAcoin:
-●
-AURAcoin is the virtual currency used within Aura.
-Other Games (Under Development):
-●
-Blackjack
-●
-Fishing
-●
-LLM Trivia
-●
-Lottery
-●
-Roulette
-●
-Slots
+# AURA Features
+
+AURA provides a variety of features categorized into the following sections:
+
+## Chat and AI Interaction:
+- **Chat with LLaMA**: Use the `/chat` command to converse with the LLaMA language model.
+- **System Prompt Setting**: Customize the initial system prompt using the `/set_prompt` command.
+- **Conversation Memory Management**: Reset your conversation history with `/reset_memory`.
+
+## Server Information and User Profiles:
+- **Server Insights**: Use `/serverinfo` to get detailed server information such as server ID, member count, and creation date.
+- **User Profiles**: View comprehensive user profiles using `/whois`, displaying details like user ID, status, and join date.
+
+## Games and Entertainment:
+- **Rock-Paper-Scissors**: Play Rock-Paper-Scissors with AURAcoin bets.
+  - `/rps_challenge @[user] [amount]`: Challenge a user.
+  - `/rps_accept`: Accept a challenge.
+  - `/rps_decline`: Decline a challenge.
+  - `/rps_choice [choice]`: Make your choice of rock, paper, or scissors.
+  - `/rps_rules`: View the rules.
+
+- **Dice Rolling**: Roll virtual dice with `/roll` using formats like `NdN` and `NdN+M`.
+- **Coin Flip**: Flip a virtual coin using `/coinflip`.
+- **Dice Duels**: Bet AURAcoin in dice duels.
+  - `/dice_duel_challenge @[user] [amount] [dice]`: Challenge a user.
+  - `/dice_duel_accept`: Accept a duel.
+  - `/dice_duel_decline`: Decline a duel.
+  - `/dice_duel_cancel`: Cancel your challenge.
+
+- **Duels**: Challenge users to duels.
+  - `/duel_challenge @[user] [amount]`: Start a duel.
+  - `/duel_accept`: Accept a duel.
+  - `/duel_decline`: Decline a duel.
+  - `/duel_attack`: Attack during your turn.
+  - `/duel_leaderboard`: View the duel leaderboard.
+  - `/duel_rules`: View the rules.
+
+## Birthdays:
+- **Birthday Management**: Set your birthday with `/set_birthday [date]` (format: YYYY-MM-DD).
+- **Birthday Countdown**: Check the countdown to a user's birthday using `/birthday_countdown`, optionally mentioning another user with `@[user]`.
+- **Birthday Wishes**: AURA automatically sends birthday wishes on users' birthdays.
+
+## AURAcoin:
+- **AURAcoin**: Virtual currency used in various games within AURA.
+
+## Other Games (Under Development):
+- Blackjack
+- Fishing
+- LLM Trivia
+- Lottery
+- Roulette
+- Slots
+
 
 ## Installation and Setup
 
@@ -110,33 +85,23 @@ Slots
 Once the bot is running and connected to your Discord server, you can use the slash commands provided by each cog. Type `/` in a Discord channel to see a list of available commands.
 
 ## Cogs
-Aura is designed with a modular structure using cogs. Here's a list of the cogs included:
-●
-birthday.py: Manages user birthdays, sending birthday wishes and providing countdown functionality.
-●
-chat.py: Enables chatting with the Ollama LLM, including prompt setting and memory management.
-●
-coinflip.py: Provides a coin flip command.
-●
-dice.py: Enables dice rolling with custom modifiers.
-●
-dice_duel.py: Facilitates dice duels with AURAcoin betting.
-●
-duel_arena.py: Manages duels between users with AURAcoin bets.
-●
-general.py: Includes basic commands like ping.
-●
-info.py: Provides commands to display server information and user details.
-●
-llm_trivia.py: Provides a trivia game powered by an LLM.
-●
-lottery.py: Manages a lottery system.
-●
-RockPaperScissors.py: Allows users to play Rock-Paper-Scissors against each other using AURAcoin.
-●
-roulette.py: Offers a roulette game.
-●
-slots.py: Provides a slot machine game.
+## Modular Structure with Cogs
+
+AURA is designed with a modular structure using cogs. Here’s a list of the cogs included:
+
+- **birthday.py**: Manages user birthdays, sending birthday wishes and countdowns.
+- **chat.py**: Enables chat with the Ollama LLM, including prompt setting and memory management.
+- **coinflip.py**: Provides a coin flip command.
+- **dice.py**: Handles dice rolling with custom modifiers.
+- **dice_duel.py**: Facilitates dice duels with AURAcoin betting.
+- **duel_arena.py**: Manages user duels with AURAcoin bets.
+- **general.py**: Includes basic commands like ping.
+- **info.py**: Displays server and user information.
+- **llm_trivia.py**: Offers an LLM-powered trivia game.
+- **lottery.py**: Manages a lottery system.
+- **RockPaperScissors.py**: Allows Rock-Paper-Scissors games with AURAcoin.
+- **roulette.py**: Provides a roulette game.
+- **slots.py**: Offers a slot machine game.
 
 ## Logging
 
