@@ -31,8 +31,6 @@ class AURACog(commands.Cog):
         self.custom_scripts_directory.mkdir(parents=True, exist_ok=True)
         self.uploaded_files_directory.mkdir(parents=True, exist_ok=True)
 
-        # Initialize SQLite database in the correct folder
-        self.conn = sqlite3.connect(self.memory_directory / 'aura_memory.db')  # Updated path for the database
         self.create_tables()
         self.insert_genesis_memory()  # Add initial genesis memory to database
 
@@ -45,66 +43,7 @@ class AURACog(commands.Cog):
         self.create_aura_md_file()  # Create the Markdown file with AURA.py content
 
         # Load spaCy model for keyword extraction
-        self.nlp = spacy.load("en_core_web_sm")
-
-    def create_tables(self):
-        """Creates necessary tables for guilds, users, memory, and logs in the database."""
-        with self.conn:
-            # Create a table for storing guild information
-            self.conn.execute(''' 
-                CREATE TABLE IF NOT EXISTS guilds (
-                    guild_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    guild_name TEXT UNIQUE
-                )
-            ''')
-            # Create a table for storing conversation memory
-            self.conn.execute(''' 
-                CREATE TABLE IF NOT EXISTS memories (
-                    memory_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    guild_id INTEGER,
-                    channel_id INTEGER,
-                    user_id INTEGER,
-                    username TEXT,
-                    role TEXT,
-                    content TEXT,
-                    timestamp TEXT,
-                    session_id INTEGER,
-                    context TEXT,
-                    priority INTEGER DEFAULT 0,
-                    sentiment TEXT,
-                    memory_type TEXT,
-                    FOREIGN KEY (guild_id) REFERENCES guilds (guild_id)
-                )
-            ''')
-            # Create a table for storing user profiles
-            self.conn.execute(''' 
-                CREATE TABLE IF NOT EXISTS user_profiles (
-                    profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    guild_id INTEGER,
-                    user_id INTEGER,  -- Unique identifier for each user
-                    username TEXT,
-                    profile_picture_url TEXT,
-                    join_date TEXT,
-                    last_active_date TEXT,
-                    roles TEXT,
-                    preferences TEXT,
-                    timestamp TEXT,
-                    FOREIGN KEY (guild_id) REFERENCES guilds (guild_id)
-                )
-            ''')
-            # Create a table for storing logs of various events
-            self.conn.execute(''' 
-                CREATE TABLE IF NOT EXISTS logs (
-                    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    log_type TEXT,
-                    log_message TEXT,
-                    guild_id INTEGER,
-                    user_id INTEGER,
-                    username TEXT,
-                    timestamp TEXT,
-                    FOREIGN KEY (guild_id) REFERENCES guilds (guild_id)
-                )
-            ''')
+        self.nlp = spacy.load("en_core_web_sm")  
 
     def log_event(self, log_type, message, guild_id=None, user_id=None, username=None):
         """Logs an event to the database."""

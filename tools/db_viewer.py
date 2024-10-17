@@ -1,3 +1,4 @@
+import random
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
@@ -21,7 +22,7 @@ class DatabaseViewer:
 
         self.table_var = tk.StringVar()
         self.table_dropdown = ttk.Combobox(self.root, textvariable=self.table_var, state="readonly")
-        self.table_dropdown['values'] = ("guilds", "memories", "user_profiles", "logs")
+        self.table_dropdown['values'] = ("guilds", "memories", "user_profiles", "logs", "auracoin_ledger", "blackjack_game")  # Added new tables
         self.table_dropdown.grid(row=0, column=1, padx=10, pady=10)
         self.table_dropdown.bind("<<ComboboxSelected>>", self.display_table_data)
 
@@ -105,7 +106,9 @@ class DatabaseViewer:
             "guilds": "guild_id",
             "memories": "memory_id",
             "user_profiles": "profile_id",
-            "logs": "log_id"
+            "logs": "log_id",
+            "auracoin_ledger": "transaction_id",  # Added auracoin_ledger primary key
+            "blackjack_game": "game_id"  # Added blackjack_game primary key
         }
 
         primary_key = primary_key_column.get(table_name)
