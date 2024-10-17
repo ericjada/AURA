@@ -85,8 +85,9 @@ class Chat(commands.Cog):
         """
         user_id = str(interaction.user.id)  # Get the user ID
         username = str(interaction.user)  # Get the username
-        guild_id = str(interaction.guild.id)  # Get the guild ID
-        channel_id = str(interaction.channel.id)  # Get the channel ID
+        guild_id = str(interaction.guild.id) if interaction.guild else 'DM'
+        channel_id = str(interaction.channel.id) if interaction.channel else 'DM'
+
 
         print(f"{username} used /chat with prompt: {prompt}")
 

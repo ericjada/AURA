@@ -18,46 +18,11 @@ class DatabaseManager(commands.Cog):
             # Create a table for storing guild information
             self.conn.execute(''' 
                 CREATE TABLE IF NOT EXISTS guilds (
-                    guild_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    guild_name TEXT UNIQUE
+                    guild_id INTEGER PRIMARY KEY,
+                    guild_name TEXT
                 )
             ''')
-            # Create a table for storing conversation memory
-            self.conn.execute(''' 
-                CREATE TABLE IF NOT EXISTS memories (
-                    memory_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    guild_id INTEGER,
-                    channel_id INTEGER,
-                    user_id INTEGER,
-                    username TEXT,
-                    role TEXT,
-                    content TEXT,
-                    timestamp TEXT,
-                    session_id INTEGER,
-                    context TEXT,
-                    priority INTEGER DEFAULT 0,
-                    sentiment TEXT,
-                    memory_type TEXT,
-                    FOREIGN KEY (guild_id) REFERENCES guilds (guild_id)
-                )
-            ''')
-            # Create a table for storing user profiles
-            self.conn.execute(''' 
-                CREATE TABLE IF NOT EXISTS user_profiles (
-                    profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    guild_id INTEGER,
-                    user_id INTEGER,  -- Unique identifier for each user
-                    username TEXT,
-                    profile_picture_url TEXT,
-                    join_date TEXT,
-                    last_active_date TEXT,
-                    roles TEXT,
-                    preferences TEXT,
-                    timestamp TEXT,
-                    FOREIGN KEY (guild_id) REFERENCES guilds (guild_id)
-                )
-            ''')
-            # Create auracoin_ledger table
+            # Create auracoin_ledger table with guild_id
             self.conn.execute('''
                 CREATE TABLE IF NOT EXISTS auracoin_ledger (
                     transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +33,7 @@ class DatabaseManager(commands.Cog):
                     timestamp TEXT NOT NULL
                 )
             ''')
-            # Create blackjack_game table
+            # Create blackjack_game table with guild_id and channel_id
             self.conn.execute('''
                 CREATE TABLE IF NOT EXISTS blackjack_game (
                     game_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,10 +43,11 @@ class DatabaseManager(commands.Cog):
                     result TEXT NOT NULL,  -- win, lose, push
                     amount_won_lost INTEGER NOT NULL,
                     bet INTEGER NOT NULL,
-                    timestamp TEXT NOT NULL
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id)
                 )
             ''')
-            # Create logs table
+            # Create logs table with guild_id and user_id
             self.conn.execute('''
                 CREATE TABLE IF NOT EXISTS logs (
                     log_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,7 +56,93 @@ class DatabaseManager(commands.Cog):
                     timestamp TEXT NOT NULL,
                     guild_id INTEGER,
                     user_id INTEGER,
-                    username TEXT
+                    username TEXT,
+                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id)
+                )
+            ''')
+            # Create roulette_game table with guild_id and player_id
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS roulette_game (
+                    game_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id INTEGER NOT NULL,
+                    player_id INTEGER NOT NULL,
+                    bet_type TEXT NOT NULL,  -- red, black, even, odd, number
+                    bet_amount INTEGER NOT NULL,
+                    outcome_number INTEGER NOT NULL,
+                    outcome_color TEXT NOT NULL,  -- red, black, green (for 0)
+                    result TEXT NOT NULL,  -- win or lose
+                    winnings INTEGER NOT NULL,  -- Amount won (or lost, 0 for a loss)
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id)
+                )
+            ''')
+            # Create lottery_results table with guild_id
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS lottery_results (
+                    result_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id INTEGER NOT NULL,
+                    winner_id INTEGER NOT NULL,
+                    prize_amount INTEGER NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id)
+                )
+            ''')
+            # Create dice_duel_results table with guild_id
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS dice_duel_results (
+                    duel_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id INTEGER NOT NULL,
+                    challenger_id INTEGER NOT NULL,
+                    challenged_id INTEGER NOT NULL,
+                    amount INTEGER NOT NULL,
+                    winner_id INTEGER NOT NULL,
+                    loser_id INTEGER NOT NULL,
+                    challenger_result INTEGER NOT NULL,
+                    challenged_result INTEGER NOT NULL,
+                    challenger_rolls TEXT NOT NULL,
+                    challenged_rolls TEXT NOT NULL,
+                    dice_str TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id)
+                )
+            ''')
+            # Create rps_game table with guild_id
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS rps_game (
+                    game_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id INTEGER NOT NULL,
+                    winner_id INTEGER,
+                    loser_id INTEGER,
+                    result TEXT NOT NULL,  -- 'win' or 'tie'
+                    bet_amount INTEGER NOT NULL,
+                    winnings INTEGER NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id)
+                )
+            ''')
+            # Create duel_arena table with guild_id
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS duel_arena (
+                    duel_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id INTEGER NOT NULL,
+                    winner_id INTEGER NOT NULL,
+                    loser_id INTEGER NOT NULL,
+                    bet_amount INTEGER NOT NULL,
+                    winnings INTEGER NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id)
+                )
+            ''')
+            # Create fishing_inventory table with guild_id
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS fishing_inventory (
+                    guild_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    bait INTEGER DEFAULT 0,
+                    fish_name TEXT,
+                    quantity INTEGER DEFAULT 0,
+                    PRIMARY KEY (guild_id, user_id, fish_name),
+                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id)
                 )
             ''')
 

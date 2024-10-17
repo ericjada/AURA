@@ -34,6 +34,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
+intents.dm_messages = True  # Allow the bot to listen to DMs
 bot = commands.Bot(command_prefix='/', intents=intents)
 
 # Initialize SQLite database connection

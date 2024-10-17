@@ -1,81 +1,26 @@
+# blackjack.py
+
 import random
 import discord
 from discord.ext import commands
 from datetime import datetime
-import sqlite3
 
-class Games(commands.Cog):
+class Blackjack(commands.Cog):
     """
-    A Discord cog that provides various games and fun commands,
-    including dice rolls, coin flips, Magic 8-Ball responses, and a Blackjack game with AURAcoin betting.
+    A Discord cog that provides a Blackjack game with AURAcoin betting.
     """
 
     def __init__(self, bot):
         """
-        Initialize the Games cog.
+        Initialize the Blackjack cog.
 
         Args:
             bot: An instance of the Discord bot.
         """
         self.bot = bot
-        self.conn = sqlite3.connect('./group_memories/aura_memory.db')
         self.active_blackjack_games = {}  # Key: (guild_id, channel_id), Value: BlackjackGame instance
 
-    @discord.app_commands.command(name="balance", description="Check your AURAcoin balance.")
-    async def balance(self, interaction: discord.Interaction):
-        """Checks the user's AURAcoin balance and grants a daily bonus if eligible."""
-        user_id = interaction.user.id
-        await interaction.response.defer(thinking=True)  # Add defer to show 'thinking' indicator
-        # Check and grant daily bonus if eligible
-        daily_bonus_granted = self.check_and_grant_daily_bonus(user_id)
-        balance = self.get_auracoin_balance(user_id)
-        if daily_bonus_granted:
-            await interaction.followup.send(f"You have received your daily bonus of 100 AC!\nYour AURAcoin balance is: {balance} AC")
-        else:
-            await interaction.followup.send(f"Your AURAcoin balance is: {balance} AC")
-
-        # Log the command usage
-        self.log_command_usage(interaction, "balance", "", f"Balance: {balance} AC")
-
-    def check_and_grant_daily_bonus(self, player_id):
-        """Checks if the player is eligible for the daily bonus and grants it if they are.
-
-        Returns True if the bonus was granted, False otherwise.
-        """
-        cursor = self.conn.cursor()
-        # Get the last time the user received a daily bonus
-        cursor.execute("""
-            SELECT timestamp FROM auracoin_ledger
-            WHERE player_id = ? AND transaction_type = 'daily_bonus'
-            ORDER BY transaction_id DESC LIMIT 1
-        """, (player_id,))
-        result = cursor.fetchone()
-        now = datetime.now()
-        if result:
-            last_bonus_time = datetime.fromisoformat(result[0])
-            time_since_last_bonus = now - last_bonus_time
-            if time_since_last_bonus.total_seconds() < 24 * 3600:
-                # Not eligible yet
-                return False
-        # Grant the bonus
-        balance = self.get_auracoin_balance(player_id)
-        new_balance = balance + 100
-        timestamp = now.isoformat()
-        with self.conn:
-            self.conn.execute("""
-                INSERT INTO auracoin_ledger (player_id, change_amount, balance, transaction_type, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-            """, (player_id, 100, new_balance, 'daily_bonus', timestamp))
-        return True
-
-    def get_auracoin_balance(self, player_id):
-        """Get the AURAcoin balance for a player."""
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT balance FROM auracoin_ledger WHERE player_id = ? ORDER BY transaction_id DESC LIMIT 1", (player_id,))
-        result = cursor.fetchone()
-        return result[0] if result else 0
-
-    @discord.app_commands.command(name="blackjack", description="Play a game of Blackjack with AURAcoin betting.")
+    @discord.app_commands.command(name="blackjack", description="Start a game of Blackjack with AURAcoin betting.")
     async def blackjack(self, interaction: discord.Interaction):
         """Starts a game of Blackjack."""
         guild_id = interaction.guild.id
@@ -132,7 +77,7 @@ class Games(commands.Cog):
 
         key = (guild_id, channel_id)
 
-        await interaction.response.defer(thinking=True)  # Add defer to show 'thinking' indicator
+        await interaction.response.defer(thinking=True)
 
         # Check if there's an active game
         if key not in self.active_blackjack_games:
@@ -146,7 +91,7 @@ class Games(commands.Cog):
 
         # Place the bet
         try:
-            game.place_bet(user.id, amount)
+            await game.place_bet(interaction, user.id, amount)
             await interaction.followup.send(f"{user.mention} has placed a bet of {amount} AC.")
         except ValueError as e:
             await interaction.followup.send(str(e))
@@ -181,7 +126,6 @@ class Games(commands.Cog):
         channel_id = interaction.channel.id
         key = (guild_id, channel_id)
 
-        # Acknowledge the interaction to prevent timeout
         await interaction.response.defer(thinking=True)
 
         # Check if there's an active game
@@ -220,7 +164,6 @@ class Games(commands.Cog):
         channel_id = interaction.channel.id
         key = (guild_id, channel_id)
 
-        # Acknowledge the interaction to prevent timeout
         await interaction.response.defer(thinking=True)
 
         # Check if there's an active game
@@ -253,7 +196,7 @@ class Games(commands.Cog):
             channel = interaction.channel
             await channel.send(f"Dealer's hand: {dealer_hand_formatted} (Total: {dealer_hand_value})")
             # Determine results and update balances
-            results = game.determine_results()
+            results = await game.determine_results(interaction)
             for player_id, result in results.items():
                 user = await self.bot.fetch_user(player_id)
                 if result == 'win':
@@ -264,20 +207,11 @@ class Games(commands.Cog):
                     await channel.send(f"{user.mention} pushes (tie).")
 
                 # Log the game result in the blackjack_game table
-                self.log_blackjack_game(game.guild_id, game.channel_id, player_id, result, game.bets[player_id], game.get_winnings_or_loss(result, player_id))
+                game.log_blackjack_game(player_id, result, game.bets[player_id], game.get_winnings_or_loss(result, player_id))
 
             # Remove the game from active games
             key = (game.guild_id, game.channel_id)
             del self.active_blackjack_games[key]
-
-    def log_blackjack_game(self, guild_id, channel_id, player_id, result, bet, winnings_or_loss):
-        """Logs the result of a Blackjack game into the blackjack_game table."""
-        timestamp = datetime.now().isoformat()
-        with self.conn:
-            self.conn.execute('''
-                INSERT INTO blackjack_game (guild_id, channel_id, player_id, result, amount_won_lost, bet, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (guild_id, channel_id, player_id, result, winnings_or_loss, bet, timestamp))
 
     def log_command_usage(self, interaction, command_name, input_data, output_data):
         """Logs the command usage to the database.
@@ -293,51 +227,10 @@ class Games(commands.Cog):
         guild_id = interaction.guild.id if interaction.guild else None
         username = interaction.user.name
 
-        with self.conn:
-            self.conn.execute('''
-                INSERT INTO logs (log_type, log_message, timestamp, guild_id, user_id, username)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', ('COMMAND_USAGE', f"({username}) executed {command_name}.", timestamp, guild_id, user_id, username))
-
-    @discord.app_commands.command(name="leaderboard", description="Shows the top 5 Blackjack winners and losers.")
-    async def leaderboard(self, interaction: discord.Interaction):
-        """Displays the top 5 winners and losers in Blackjack based on their overall winnings/losses."""
-        cursor = self.conn.cursor()
-
-        # Query top 5 winners
-        cursor.execute('''
-            SELECT player_id, SUM(amount_won_lost) as total_won
-            FROM blackjack_game
-            WHERE result = 'win'
-            GROUP BY player_id
-            ORDER BY total_won DESC
-            LIMIT 5
-        ''')
-        winners = cursor.fetchall()
-
-        # Query top 5 losers
-        cursor.execute('''
-            SELECT player_id, SUM(amount_won_lost) as total_lost
-            FROM blackjack_game
-            WHERE result = 'lose'
-            GROUP BY player_id
-            ORDER BY total_lost ASC
-            LIMIT 5
-        ''')
-        losers = cursor.fetchall()
-
-        # Format the output
-        leaderboard_message = "**Top 5 Winners:**\n"
-        for i, (player_id, total_won) in enumerate(winners, start=1):
-            user = await self.bot.fetch_user(player_id)
-            leaderboard_message += f"{i}. {user.name} - {total_won} AC\n"
-
-        leaderboard_message += "\n**Top 5 Losers:**\n"
-        for i, (player_id, total_lost) in enumerate(losers, start=1):
-            user = await self.bot.fetch_user(player_id)
-            leaderboard_message += f"{i}. {user.name} - {total_lost} AC\n"
-
-        await interaction.response.send_message(leaderboard_message)
+        # Access the AURAcoin cog to log the command usage
+        auracoin_cog = self.bot.get_cog('AURAcoin')
+        if auracoin_cog:
+            auracoin_cog.log_command_usage(interaction, command_name, input_data, output_data)
 
 class BlackjackGame:
     """Class to manage a Blackjack game."""
@@ -352,6 +245,14 @@ class BlackjackGame:
         self.dealer_hand = []
         self.deck = self.initialize_deck()
         self.players_in_turn = []
+
+        # Access the AURAcoin cog
+        self.auracoin_cog = cog.bot.get_cog('AURAcoin')
+        if not self.auracoin_cog:
+            raise Exception("AURAcoin cog is not loaded.")
+
+        # Get database connection
+        self.conn = self.auracoin_cog.conn
 
     def initialize_deck(self):
         """Initializes and shuffles the deck."""
@@ -374,19 +275,14 @@ class BlackjackGame:
         self.bets[player_id] = 0
         self.player_hands[player_id] = []
 
-    def place_bet(self, player_id, amount):
+    async def place_bet(self, interaction, player_id, amount):
         """Places a bet for a player."""
-        balance = self.cog.get_auracoin_balance(player_id)
+        balance = self.auracoin_cog.get_auracoin_balance(self.guild_id, player_id)
         if amount > balance:
             raise ValueError(f"You have insufficient AURAcoin balance. Your balance is {balance} AC.")
         self.bets[player_id] = amount
-        new_balance = balance - amount
-        timestamp = datetime.now().isoformat()
-        with self.cog.conn:
-            self.cog.conn.execute('''
-                INSERT INTO auracoin_ledger (player_id, change_amount, balance, transaction_type, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (player_id, -amount, new_balance, 'bet', timestamp))
+        # Update balance
+        self.auracoin_cog.update_balance(self.guild_id, player_id, -amount, 'bet')
 
     def all_bets_placed(self):
         """Checks if all players have placed their bets."""
@@ -422,14 +318,13 @@ class BlackjackGame:
         while self.calculate_hand_value(self.dealer_hand) < 17:
             self.dealer_hand.append(self.deck.pop())
 
-    def determine_results(self):
+    async def determine_results(self, interaction):
         """Determines the result for each player."""
         dealer_value = self.calculate_hand_value(self.dealer_hand)
         results = {}
         for player_id in self.players:
             player_value = self.calculate_hand_value(self.player_hands[player_id])
             bet = self.bets[player_id]
-            timestamp = datetime.now().isoformat()
             if player_value > 21:
                 # Player busts
                 results[player_id] = 'lose'
@@ -437,23 +332,13 @@ class BlackjackGame:
             elif dealer_value > 21 or player_value > dealer_value:
                 # Player wins
                 winnings = bet * 2
-                balance = self.cog.get_auracoin_balance(player_id)
-                new_balance = balance + winnings
-                with self.cog.conn:
-                    self.cog.conn.execute('''
-                        INSERT INTO auracoin_ledger (player_id, change_amount, balance, transaction_type, timestamp)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (player_id, winnings, new_balance, 'win', timestamp))
+                # Update balance
+                self.auracoin_cog.update_balance(self.guild_id, player_id, winnings, 'win')
                 results[player_id] = 'win'
             elif player_value == dealer_value:
                 # Push (tie), return bet
-                balance = self.cog.get_auracoin_balance(player_id)
-                new_balance = balance + bet
-                with self.cog.conn:
-                    self.cog.conn.execute('''
-                        INSERT INTO auracoin_ledger (player_id, change_amount, balance, transaction_type, timestamp)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (player_id, bet, new_balance, 'push', timestamp))
+                # Update balance
+                self.auracoin_cog.update_balance(self.guild_id, player_id, bet, 'push')
                 results[player_id] = 'push'
             else:
                 # Player loses
@@ -464,17 +349,26 @@ class BlackjackGame:
     def get_winnings_or_loss(self, result, player_id):
         """Returns the amount won or lost based on the game result."""
         if result == "win":
-            return self.bets[player_id] * 2
+            return self.bets[player_id]
         elif result == "lose":
             return -self.bets[player_id]
         else:
-            return 0
+            return 0  # Push (tie), no gain or loss
+
+    def log_blackjack_game(self, player_id, result, bet, winnings_or_loss):
+        """Logs the result of a Blackjack game into the blackjack_game table."""
+        timestamp = datetime.now().isoformat()
+        with self.conn:
+            self.conn.execute('''
+                INSERT INTO blackjack_game (guild_id, channel_id, player_id, result, amount_won_lost, bet, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (self.guild_id, self.channel_id, player_id, result, winnings_or_loss, bet, timestamp))
 
 # Set up the cog
 async def setup(bot):
-    """Load the Games cog into the bot.
+    """Load the Blackjack cog into the bot.
 
     Args:
         bot: An instance of the Discord bot.
     """
-    await bot.add_cog(Games(bot))
+    await bot.add_cog(Blackjack(bot))
