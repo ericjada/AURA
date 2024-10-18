@@ -47,16 +47,16 @@ class DatabaseManager(commands.Cog):
             # Create blackjack_game table without guild_id
             self.conn.execute('''
                 CREATE TABLE IF NOT EXISTS blackjack_game (
-                    game_id TEXT PRIMARY KEY,  -- Changed to TEXT to accommodate UUIDs
+                    game_id TEXT NOT NULL,
                     channel_id INTEGER NOT NULL,
                     player_id INTEGER NOT NULL,
-                    result TEXT NOT NULL,      -- win, lose, push
+                    result TEXT NOT NULL,
                     amount_won_lost INTEGER NOT NULL,
                     bet INTEGER NOT NULL,
-                    timestamp TEXT NOT NULL
+                    timestamp TEXT NOT NULL,
+                    PRIMARY KEY (game_id, player_id)
                 )
             ''')
-
             # Logs table without guild_id
             self.conn.execute('''
                 CREATE TABLE IF NOT EXISTS logs (

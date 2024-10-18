@@ -5,6 +5,7 @@ import random
 import uuid
 import discord
 from discord.ext import commands
+from discord import app_commands
 from datetime import datetime
 
 class Blackjack(commands.Cog):
@@ -22,7 +23,7 @@ class Blackjack(commands.Cog):
         self.bot = bot
         self.active_blackjack_games = {}  # Key: channel_id, Value: BlackjackGame instance
 
-    @discord.app_commands.command(name="blackjack", description="Start a game of Blackjack with AURAcoin betting.")
+    @app_commands.command(name="blackjack", description="Start a game of Blackjack with AURAcoin betting.")
     async def blackjack(self, interaction: discord.Interaction):
         """Starts a game of Blackjack."""
         channel_id = interaction.channel.id
@@ -32,14 +33,14 @@ class Blackjack(commands.Cog):
 
         # Check if there's an active game in this channel
         if key in self.active_blackjack_games:
-            await interaction.response.send_message("A Blackjack game is already in progress in this channel.")
+            await interaction.response.send_message("A Blackjack game is already in progress in this channel.", ephemeral=True)
             return
 
         # Initialize a new game
         try:
             game = BlackjackGame(self, channel_id)
         except Exception as e:
-            await interaction.response.send_message(f"Failed to start a Blackjack game: {e}")
+            await interaction.response.send_message(f"Failed to start a Blackjack game: {e}", ephemeral=True)
             return
 
         self.active_blackjack_games[key] = game
@@ -48,7 +49,7 @@ class Blackjack(commands.Cog):
         # Log the command usage
         self.log_command_usage(interaction, "blackjack", "", f"{user.name} started a Blackjack game.")
 
-    @discord.app_commands.command(name="join", description="Join an active Blackjack game in this channel.")
+    @app_commands.command(name="join", description="Join an active Blackjack game in this channel.")
     async def join(self, interaction: discord.Interaction):
         """Allows a user to join an active Blackjack game."""
         channel_id = interaction.channel.id
@@ -58,12 +59,12 @@ class Blackjack(commands.Cog):
 
         # Check if there's an active game
         if key not in self.active_blackjack_games:
-            await interaction.response.send_message("There is no active Blackjack game in this channel. Start one with `/blackjack`.")
+            await interaction.response.send_message("There is no active Blackjack game in this channel. Start one with `/blackjack`.", ephemeral=True)
             return
 
         game = self.active_blackjack_games[key]
         if user.id in game.players:
-            await interaction.response.send_message("You have already joined the game.")
+            await interaction.response.send_message("You have already joined the game.", ephemeral=True)
             return
 
         game.add_player(user.id)
@@ -72,8 +73,8 @@ class Blackjack(commands.Cog):
         # Log the command usage
         self.log_command_usage(interaction, "join", "", f"{user.name} joined the Blackjack game.")
 
-    @discord.app_commands.command(name="bet", description="Place a bet for the Blackjack game.")
-    @discord.app_commands.describe(amount="The amount of AURAcoin to bet.")
+    @app_commands.command(name="bet", description="Place a bet for the Blackjack game.")
+    @app_commands.describe(amount="The amount of AURAcoin to bet.")
     async def bet(self, interaction: discord.Interaction, amount: int):
         """Allows a player to place a bet."""
         channel_id = interaction.channel.id
@@ -85,12 +86,12 @@ class Blackjack(commands.Cog):
 
         # Check if there's an active game
         if key not in self.active_blackjack_games:
-            await interaction.followup.send("There is no active Blackjack game to bet on. Start one with `/blackjack`.")
+            await interaction.followup.send("There is no active Blackjack game to bet on. Start one with `/blackjack`.", ephemeral=True)
             return
 
         game = self.active_blackjack_games[key]
         if user.id not in game.players:
-            await interaction.followup.send("You need to join the game first using `/join`.")
+            await interaction.followup.send("You need to join the game first using `/join`.", ephemeral=True)
             return
 
         # Place the bet
@@ -98,7 +99,10 @@ class Blackjack(commands.Cog):
             await game.place_bet(interaction, user.id, amount)
             await interaction.followup.send(f"{user.mention} has placed a bet of {amount} AC.")
         except ValueError as e:
-            await interaction.followup.send(str(e))
+            await interaction.followup.send(str(e), ephemeral=True)
+            return
+        except Exception as e:
+            await interaction.followup.send(f"An error occurred while placing your bet: {e}", ephemeral=True)
             return
 
         # Log the command usage
@@ -108,24 +112,7 @@ class Blackjack(commands.Cog):
         if game.all_bets_placed():
             await self.start_blackjack_game(interaction, game)
 
-    async def start_blackjack_game(self, interaction, game):
-        """Starts the Blackjack game after all bets are placed."""
-        game.deal_initial_cards()
-        for player_id in game.players:
-            user = await self.bot.fetch_user(player_id)
-            player_hand = game.player_hands[player_id]
-            hand_value = game.calculate_hand_value(player_hand)
-            try:
-                await user.send(f"Your hand: {game.format_hand(player_hand)} (Total: {hand_value})")
-                await user.send("Type `/hit` to take another card or `/stand` to hold your hand.")
-            except discord.Forbidden:
-                await interaction.channel.send(f"{user.mention}, I couldn't send you a DM. Please check your privacy settings.")
-
-        # Notify the channel
-        channel = interaction.channel
-        await channel.send("All bets are placed. Players have been dealt their initial cards. Check your DMs for your hand.")
-
-    @discord.app_commands.command(name="hit", description="Take another card in Blackjack.")
+    @app_commands.command(name="hit", description="Take another card in Blackjack.")
     async def hit(self, interaction: discord.Interaction):
         """Allows a player to take another card."""
         user = interaction.user
@@ -136,39 +123,45 @@ class Blackjack(commands.Cog):
 
         # Check if there's an active game
         if key not in self.active_blackjack_games:
-            await interaction.followup.send("There is no active Blackjack game to play. Start one with `/blackjack`.")
+            await interaction.followup.send("There is no active Blackjack game to play. Start one with `/blackjack`.", ephemeral=True)
             return
 
         game = self.active_blackjack_games[key]
         if user.id not in game.players_in_turn:
-            await interaction.followup.send("It's not your turn or you've already stood.")
+            await interaction.followup.send("It's not your turn or you've already stood.", ephemeral=True)
             return
 
         # Player takes a card
-        game.hit(user.id)
-        player_hand = game.player_hands[user.id]
-        hand_value = game.calculate_hand_value(player_hand)
+        try:
+            game.hit(user.id)
+            player_hand = game.player_hands[user.id]
+            hand_value = game.calculate_hand_value(player_hand)
 
-        # Check for bust
-        if hand_value > 21:
-            try:
-                await user.send(f"You drew a card. Your hand: {game.format_hand(player_hand)} (Total: {hand_value}). You busted!")
-            except discord.Forbidden:
-                await interaction.channel.send(f"{user.mention}, I couldn't send you a DM. Please check your privacy settings.")
-            game.players_in_turn.remove(user.id)
-        else:
-            try:
-                await user.send(f"You drew a card. Your hand: {game.format_hand(player_hand)} (Total: {hand_value}).")
-            except discord.Forbidden:
-                await interaction.channel.send(f"{user.mention}, I couldn't send you a DM. Please check your privacy settings.")
+            # Check for bust
+            if hand_value > 21:
+                try:
+                    await user.send(f"You drew a card. Your hand: {game.format_hand(player_hand)} (Total: {hand_value}). You busted!")
+                except discord.Forbidden:
+                    await interaction.channel.send(f"{user.mention}, I couldn't send you a DM. Please check your privacy settings.")
+                game.players_in_turn.remove(user.id)
+                await interaction.followup.send(f"{user.mention} has taken a hit.")
+            else:
+                try:
+                    await user.send(f"You drew a card. Your hand: {game.format_hand(player_hand)} (Total: {hand_value}).")
+                except discord.Forbidden:
+                    await interaction.channel.send(f"{user.mention}, I couldn't send you a DM. Please check your privacy settings.")
+                await interaction.followup.send(f"{user.mention} has taken a hit.")
 
-        # Log the command usage
-        self.log_command_usage(interaction, "hit", "", f"{user.name} hit and now has hand value {hand_value}.")
+            # Log the command usage
+            self.log_command_usage(interaction, "hit", "", f"{user.name} hit and now has hand value {hand_value}.")
 
-        # Check if game is over
-        await self.check_game_over(interaction, game)
+            # Check if game is over
+            await self.check_game_over(interaction, game)
+        except Exception as e:
+            await interaction.followup.send(f"An error occurred while processing your hit: {e}", ephemeral=True)
+            return
 
-    @discord.app_commands.command(name="stand", description="Hold your hand in Blackjack.")
+    @app_commands.command(name="stand", description="Hold your hand in Blackjack.")
     async def stand(self, interaction: discord.Interaction):
         """Allows a player to hold their hand."""
         user = interaction.user
@@ -179,49 +172,93 @@ class Blackjack(commands.Cog):
 
         # Check if there's an active game
         if key not in self.active_blackjack_games:
-            await interaction.followup.send("There is no active Blackjack game to play. Start one with `/blackjack`.")
+            await interaction.followup.send("There is no active Blackjack game to play. Start one with `/blackjack`.", ephemeral=True)
             return
 
         game = self.active_blackjack_games[key]
         if user.id not in game.players_in_turn:
-            await interaction.followup.send("It's not your turn or you've already stood.")
+            await interaction.followup.send("It's not your turn or you've already stood.", ephemeral=True)
             return
 
-        game.players_in_turn.remove(user.id)
-        hand_value = game.calculate_hand_value(game.player_hands[user.id])
         try:
-            await user.send(f"You have chosen to stand with a hand value of {hand_value}.")
-        except discord.Forbidden:
-            await interaction.channel.send(f"{user.mention}, I couldn't send you a DM. Please check your privacy settings.")
+            game.stand(user.id)
+            hand_value = game.calculate_hand_value(game.player_hands[user.id])
+            try:
+                await user.send(f"You have chosen to stand with a hand value of {hand_value}.")
+            except discord.Forbidden:
+                await interaction.channel.send(f"{user.mention}, I couldn't send you a DM. Please check your privacy settings.")
 
-        # Log the command usage
-        self.log_command_usage(interaction, "stand", "", f"{user.name} stood with hand value {hand_value}.")
+            await interaction.followup.send(f"{user.mention} has chosen to stand.")
 
-        # Check if game is over
-        await self.check_game_over(interaction, game)
+            # Log the command usage
+            self.log_command_usage(interaction, "stand", "", f"{user.name} stood with hand value {hand_value}.")
+
+            # Check if game is over
+            await self.check_game_over(interaction, game)
+        except Exception as e:
+            await interaction.followup.send(f"An error occurred while processing your stand: {e}", ephemeral=True)
+            return
+
+    async def start_blackjack_game(self, interaction, game):
+        """Starts the Blackjack game after all bets are placed."""
+        try:
+            game.deal_initial_cards()
+        except Exception as e:
+            await interaction.followup.send(f"Failed to deal initial cards: {e}", ephemeral=True)
+            del self.active_blackjack_games[game.channel_id]
+            return
+
+        # Inform each player via DM about their hand
+        for player_id in game.players:
+            user = await self.bot.fetch_user(player_id)
+            player_hand = game.player_hands[player_id]
+            hand_value = game.calculate_hand_value(player_hand)
+            try:
+                await user.send(
+                    f"Your hand: {game.format_hand(player_hand)} (Total: {hand_value})\n"
+                    f"Type `/hit` to take another card or `/stand` to hold your hand."
+                )
+            except discord.Forbidden:
+                await interaction.channel.send(f"{user.mention}, I couldn't send you a DM. Please check your privacy settings.")
+
+        # Notify the channel that the game has started
+        channel = interaction.channel
+        await channel.send("All bets are placed. Players have been dealt their initial cards. Check your DMs for your hand.")
 
     async def check_game_over(self, interaction, game):
         """Checks if the game is over and resolves it."""
         if not game.players_in_turn:
             # All players have stood or busted, dealer's turn
-            game.play_dealer_hand()
-            dealer_hand_value = game.calculate_hand_value(game.dealer_hand)
-            dealer_hand_formatted = game.format_hand(game.dealer_hand)
-            channel = interaction.channel
-            await channel.send(f"Dealer's hand: {dealer_hand_formatted} (Total: {dealer_hand_value})")
-            # Determine results and update balances
-            results = await game.determine_results(interaction)
-            for player_id, result in results.items():
-                user = await self.bot.fetch_user(player_id)
-                if result == 'win':
-                    await channel.send(f"{user.mention} wins!")
-                elif result == 'lose':
-                    await channel.send(f"{user.mention} loses.")
-                elif result == 'push':
-                    await channel.send(f"{user.mention} pushes (tie).")
+            try:
+                game.play_dealer_hand()
+                dealer_value = game.calculate_hand_value(game.dealer_hand)
+                dealer_hand_formatted = game.format_hand(game.dealer_hand)
+                channel = self.bot.get_channel(game.channel_id)
+                await channel.send(f"Dealer's hand: {dealer_hand_formatted} (Total: {dealer_value})")
+            except Exception as e:
+                await interaction.channel.send(f"An error occurred while the dealer was playing: {e}")
+                # Optionally, log the error
+                print(f"Dealer play error: {e}")
+                return
 
-                # Log the game result in the blackjack_game table
-                game.log_blackjack_game(player_id, result, game.bets[player_id], game.get_winnings_or_loss(result, player_id))
+            # Determine results and update balances
+            try:
+                results = await game.determine_results(interaction)
+                for player_id, result in results.items():
+                    user = await self.bot.fetch_user(player_id)
+                    if result == 'win':
+                        await channel.send(f"{user.mention} wins!")
+                    elif result == 'lose':
+                        await channel.send(f"{user.mention} loses.")
+                    elif result == 'push':
+                        await channel.send(f"{user.mention} pushes (tie).")
+
+                    # Log the game result in the blackjack_game table
+                    game.log_blackjack_game(player_id, result, game.bets[player_id], game.get_winnings_or_loss(result, player_id))
+            except Exception as e:
+                await interaction.channel.send(f"An error occurred while determining results: {e}")
+                print(f"Result determination error: {e}")
+                return
 
             # Remove the game from active games
             key = game.channel_id
@@ -244,13 +281,20 @@ class Blackjack(commands.Cog):
         user_id = interaction.user.id
         username = interaction.user.name
 
+        # Attempt to access the AURAcoin cog
+        aura_cog = self.bot.get_cog('AURAcoin')
+        if not aura_cog:
+            print("AURAcoin cog is not loaded. Cannot log command usage.")
+            return
+
         # Log only by user_id, remove guild_id to prevent FOREIGN KEY constraint failures
         try:
-            with self.bot.get_cog('AURAcoin').conn:
-                self.bot.get_cog('AURAcoin').conn.execute('''
+            with aura_cog.conn:
+                aura_cog.conn.execute('''
                     INSERT INTO logs (log_type, log_message, timestamp, user_id, username)
                     VALUES (?, ?, ?, ?, ?)
-                ''', ('COMMAND_USAGE', f"({username}) executed {command_name}.", timestamp, user_id, username))
+                ''', ('COMMAND_USAGE', f"({username}) executed {command_name}. Input: {input_data}. Output: {output_data}", 
+                      timestamp, user_id, username))
         except sqlite3.IntegrityError as e:
             print(f"Database integrity error in log_command_usage: {e}")
             # Not critical, so we don't raise an exception
@@ -300,9 +344,13 @@ class BlackjackGame:
 
     async def place_bet(self, interaction, player_id, amount):
         """Places a bet for a player."""
+        if not isinstance(amount, int) or amount <= 0:
+            raise ValueError("You must place a positive bet amount.")
+
         balance = self.auracoin_cog.get_auracoin_balance(player_id)
         if amount > balance:
             raise ValueError(f"You have insufficient AURAcoin balance. Your balance is {balance} AC.")
+
         self.bets[player_id] = amount
         # Update balance
         self.auracoin_cog.update_balance(player_id, -amount, 'bet')
@@ -320,7 +368,15 @@ class BlackjackGame:
 
     def hit(self, player_id):
         """Deals one card to the player."""
+        if len(self.deck) == 0:
+            self.deck = self.initialize_deck()
+            print("Deck reshuffled.")
         self.player_hands[player_id].append(self.deck.pop())
+
+    def stand(self, player_id):
+        """Player chooses to stand."""
+        if player_id in self.players_in_turn:
+            self.players_in_turn.remove(player_id)
 
     def calculate_hand_value(self, hand):
         """Calculates the value of a hand."""
@@ -339,6 +395,9 @@ class BlackjackGame:
     def play_dealer_hand(self):
         """Plays the dealer's hand according to Blackjack rules."""
         while self.calculate_hand_value(self.dealer_hand) < 17:
+            if len(self.deck) == 0:
+                self.deck = self.initialize_deck()
+                print("Deck reshuffled.")
             self.dealer_hand.append(self.deck.pop())
 
     async def determine_results(self, interaction):
@@ -381,11 +440,16 @@ class BlackjackGame:
     def log_blackjack_game(self, player_id, result, bet, winnings_or_loss):
         """Logs the result of a Blackjack game into the blackjack_game table."""
         timestamp = datetime.now().isoformat()
-        with self.conn:
-            self.conn.execute('''
-                INSERT INTO blackjack_game (game_id, channel_id, player_id, result, amount_won_lost, bet, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (self.game_id, self.channel_id, player_id, result, winnings_or_loss, bet, timestamp))
+        try:
+            with self.conn:
+                self.conn.execute('''
+                    INSERT INTO blackjack_game (game_id, channel_id, player_id, result, amount_won_lost, bet, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (self.game_id, self.channel_id, player_id, result, winnings_or_loss, bet, timestamp))
+        except sqlite3.IntegrityError as e:
+            print(f"IntegrityError: {e} for game_id: {self.game_id}, player_id: {player_id}")
+        except Exception as e:
+            print(f"Unexpected error while logging Blackjack game: {e}")
 
 # Set up the cog
 async def setup(bot):
