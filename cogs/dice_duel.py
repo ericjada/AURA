@@ -1,4 +1,4 @@
-# dice_duel.py 
+# dice_duel.py
 
 import random
 import discord
@@ -78,37 +78,37 @@ class DiceDuel(commands.Cog):
         channel_id = interaction.channel.id if interaction.channel else None
 
         if not channel_id:
-            await interaction.response.send_message("Could not determine the channel for the duel.", ephemeral=True)
+            await interaction.response.send_message("❌ Could not determine the channel for the duel.", ephemeral=True)
             return
 
         await interaction.response.defer(thinking=True)
 
         # Check if the amount is valid
         if amount <= 0:
-            await interaction.followup.send("You need to bet a positive amount of AURAcoin.")
+            await interaction.followup.send("❌ You need to bet a positive amount of AURAcoin.", ephemeral=True)
             return
 
         # Check if challenger has enough balance
         challenger_balance = self.get_auracoin_balance(challenger_id)
         if amount > challenger_balance:
-            await interaction.followup.send(f"You have insufficient AURAcoin balance. Your balance is {challenger_balance} AC.")
+            await interaction.followup.send(f"❌ You have insufficient AURAcoin balance. Your balance is {challenger_balance} AC.", ephemeral=True)
             return
 
         # Validate the dice string
         try:
             self.parse_dice_roll(dice)
         except ValueError as e:
-            await interaction.followup.send(f"Invalid dice format: {str(e)}")
+            await interaction.followup.send(f"❌ Invalid dice format: {str(e)}", ephemeral=True)
             return
 
         # Check if challenged user is not a bot
         if challenged.bot:
-            await interaction.followup.send("You cannot challenge a bot.")
+            await interaction.followup.send("❌ You cannot challenge a bot.", ephemeral=True)
             return
 
         # Check if there is already an active challenge between these users
         if (challenger_id, challenged_id) in self.active_challenges or (challenged_id, challenger_id) in self.active_challenges:
-            await interaction.followup.send("There is already an active challenge between you two.")
+            await interaction.followup.send("❌ There is already an active challenge between you two.", ephemeral=True)
             return
 
         # Store the challenge with channel_id
@@ -117,14 +117,14 @@ class DiceDuel(commands.Cog):
         # Send a message to the challenged user
         try:
             await challenged.send(
-                f"{challenger.mention} has challenged you to a dice duel for {amount} AC using dice `{dice}`! "
+                f"🎲 {challenger.mention} has challenged you to a dice duel for **{amount} AC** using dice `{dice}`! "
                 f"Type `/accept` to accept or `/decline` to decline."
             )
             await interaction.followup.send(
-                f"You have challenged {challenged.mention} to a dice duel for {amount} AC using dice `{dice}`."
+                f"✅ You have challenged {challenged.mention} to a dice duel for **{amount} AC** using dice `{dice}`."
             )
         except discord.Forbidden:
-            await interaction.followup.send(f"Could not send a DM to {challenged.mention}. They might have DMs disabled.")
+            await interaction.followup.send(f"❌ Could not send a DM to {challenged.mention}. They might have DMs disabled.", ephemeral=True)
 
         # Log the command usage
         self.log_command_usage(interaction, "challenge", f"Opponent: {challenged.name}, Amount: {amount}, Dice: {dice}", 
@@ -146,7 +146,7 @@ class DiceDuel(commands.Cog):
                 break
 
         if not challenge:
-            await interaction.followup.send("You have no pending challenges.")
+            await interaction.followup.send("❌ You have no pending challenges.", ephemeral=True)
             return
 
         challenger_id, challenged_id_key, data = challenge
@@ -158,7 +158,7 @@ class DiceDuel(commands.Cog):
         # Check if challenged user has enough balance
         challenged_balance = self.get_auracoin_balance(challenged_id)
         if amount > challenged_balance:
-            await interaction.followup.send(f"You have insufficient AURAcoin balance. Your balance is {challenged_balance} AC.")
+            await interaction.followup.send(f"❌ You have insufficient AURAcoin balance. Your balance is {challenged_balance} AC.", ephemeral=True)
             # Remove the challenge
             del self.active_challenges[(challenger_id, challenged_id)]
             return
@@ -186,20 +186,20 @@ class DiceDuel(commands.Cog):
         # Inform both users to roll
         try:
             await challenger.send(
-                f"Your duel against {challenged.mention} has been accepted! Please use `/roll {dice_str}` to roll your dice."
+                f"🎲 Your duel against {challenged.mention} has been accepted! Please use `/roll {dice_str}` to roll your dice."
             )
         except discord.Forbidden:
-            await interaction.channel.send(f"{challenger.mention}, I couldn't send you a DM. Please check your privacy settings.")
+            await self.bot.get_channel(channel_id).send(f"{challenger.mention}, I couldn't send you a DM. Please check your privacy settings.")
 
         try:
             await challenged.send(
-                f"Your duel against {challenger.mention} has been accepted! Please use `/roll {dice_str}` to roll your dice."
+                f"🎲 Your duel against {challenger.mention} has been accepted! Please use `/roll {dice_str}` to roll your dice."
             )
         except discord.Forbidden:
-            await interaction.channel.send(f"{challenged.mention}, I couldn't send you a DM. Please check your privacy settings.")
+            await self.bot.get_channel(channel_id).send(f"{challenged.mention}, I couldn't send you a DM. Please check your privacy settings.")
 
         await interaction.followup.send(
-            f"You have accepted the duel with {challenger.mention} for {amount} AC using dice `{dice_str}`. Both of you have been instructed to roll your dice."
+            f"✅ You have accepted the duel with {challenger.mention} for **{amount} AC** using dice `{dice_str}`. Both of you have been instructed to roll your dice."
         )
 
         # Log the command usage
@@ -221,18 +221,18 @@ class DiceDuel(commands.Cog):
                 break
 
         if not challenge:
-            await interaction.followup.send("You have no pending challenges.")
+            await interaction.followup.send("❌ You have no pending challenges.", ephemeral=True)
             return
 
         challenger_id, challenged_id_key, data = challenge
         challenger = await self.bot.fetch_user(challenger_id)
 
         # Inform both users
-        await interaction.followup.send(f"You have declined the dice duel challenge from {challenger.mention}.")
+        await interaction.followup.send(f"✅ You have declined the dice duel challenge from {challenger.mention}.")
         try:
-            await challenger.send(f"{challenged.mention} has declined your dice duel challenge.")
+            await challenger.send(f"❌ {challenged.mention} has declined your dice duel challenge.")
         except discord.Forbidden:
-            await interaction.followup.send(f"Could not send a DM to {challenger.mention}. They might have DMs disabled.")
+            await interaction.followup.send(f"❌ Could not send a DM to {challenger.mention}. They might have DMs disabled.", ephemeral=True)
 
         # Remove the challenge
         del self.active_challenges[(challenger_id, challenged_id)]
@@ -256,7 +256,7 @@ class DiceDuel(commands.Cog):
                 # Check if the dice_str matches
                 if duel_data['dice_str'] != dice_str:
                     # Ignore rolls with incorrect dice_str
-                    return
+                    continue
 
                 if user_id == challenger_id:
                     self.pending_rolls[(challenger_id, challenged_id)]['challenger_roll'] = {'result': result, 'rolls': rolls}
@@ -302,6 +302,7 @@ class DiceDuel(commands.Cog):
         challenger = await self.bot.fetch_user(challenger_id)
         challenged = await self.bot.fetch_user(challenged_id)
 
+        # Determine the winner
         if challenger_roll > challenged_roll:
             winner = challenger
             loser = challenged
@@ -330,17 +331,17 @@ class DiceDuel(commands.Cog):
             # Inform users of the tie
             try:
                 await challenger.send(
-                    f"Your dice duel with {challenged.mention} resulted in a tie. Bets have been refunded.\n"
-                    f"Your roll: {challenger_roll} ({', '.join(map(str, challenger_rolls))})\n"
-                    f"{challenged.mention}'s roll: {challenged_roll} ({', '.join(map(str, challenged_rolls))})"
+                    f"🎲 Your dice duel with {challenged.mention} resulted in a tie. Bets have been refunded.\n"
+                    f"📊 Your roll: {challenger_roll} ({', '.join(map(str, challenger_rolls))})\n"
+                    f"📊 {challenged.mention}'s roll: {challenged_roll} ({', '.join(map(str, challenged_rolls))})"
                 )
             except discord.Forbidden:
                 pass
             try:
                 await challenged.send(
-                    f"Your dice duel with {challenger.mention} resulted in a tie. Bets have been refunded.\n"
-                    f"Your roll: {challenged_roll} ({', '.join(map(str, challenged_rolls))})\n"
-                    f"{challenger.mention}'s roll: {challenger_roll} ({', '.join(map(str, challenger_rolls))})"
+                    f"🎲 Your dice duel with {challenger.mention} resulted in a tie. Bets have been refunded.\n"
+                    f"📊 Your roll: {challenged_roll} ({', '.join(map(str, challenged_rolls))})\n"
+                    f"📊 {challenger.mention}'s roll: {challenger_roll} ({', '.join(map(str, challenger_rolls))})"
                 )
             except discord.Forbidden:
                 pass
@@ -355,7 +356,7 @@ class DiceDuel(commands.Cog):
             # Inform in the channel if possible
             if channel:
                 await channel.send(
-                    f"The duel between {challenger.mention} and {challenged.mention} ended in a tie. Bets have been refunded."
+                    f"⚖️ The duel between {challenger.mention} and {challenged.mention} ended in a tie. Bets have been refunded."
                 )
 
             # Clean up
@@ -377,20 +378,20 @@ class DiceDuel(commands.Cog):
         # Inform users of the result
         try:
             await winner.send(
-                f"Congratulations! You won the dice duel against {loser.mention} and received {total_pot} AC.\n"
-                f"Your roll: {challenger_roll if winner_id == challenger_id else challenged_roll} "
+                f"🎉 Congratulations! You won the dice duel against {loser.mention} and received **{total_pot} AC**.\n"
+                f"📊 Your roll: {challenger_roll if winner_id == challenger_id else challenged_roll} "
                 f"({', '.join(map(str, challenger_rolls if winner_id == challenger_id else challenged_rolls))})\n"
-                f"{loser.mention}'s roll: {challenged_roll if winner_id == challenger_id else challenger_roll} "
+                f"📊 {loser.mention}'s roll: {challenged_roll if winner_id == challenger_id else challenger_roll} "
                 f"({', '.join(map(str, challenged_rolls if winner_id == challenger_id else challenger_rolls))})"
             )
         except discord.Forbidden:
             pass
         try:
             await loser.send(
-                f"Unfortunately, you lost the dice duel against {winner.mention} and lost {amount} AC.\n"
-                f"Your roll: {challenged_roll if loser.id == challenged_id else challenger_roll} "
+                f"😞 Unfortunately, you lost the dice duel against {winner.mention} and lost **{amount} AC**.\n"
+                f"📊 Your roll: {challenged_roll if loser.id == challenged_id else challenger_roll} "
                 f"({', '.join(map(str, challenged_rolls if loser.id == challenged_id else challenger_rolls))})\n"
-                f"{winner.mention}'s roll: {challenger_roll if loser.id == challenged_id else challenged_roll} "
+                f"📊 {winner.mention}'s roll: {challenger_roll if loser.id == challenged_id else challenged_roll} "
                 f"({', '.join(map(str, challenger_rolls if loser.id == challenged_id else challenged_rolls))})"
             )
         except discord.Forbidden:
@@ -406,7 +407,7 @@ class DiceDuel(commands.Cog):
         # Inform in the channel if possible
         if channel:
             await channel.send(
-                f"{winner.mention} has won the duel against {loser.mention} and received {total_pot} AC!"
+                f"🏆 {winner.mention} has won the duel against {loser.mention} and received **{total_pot} AC**!"
             )
 
         # Clean up
@@ -449,7 +450,9 @@ class DiceDuel(commands.Cog):
     def log_duel_result(self, challenger_id, challenged_id, amount, winner_id, loser_id, 
                         challenger_result, challenged_result, challenger_rolls, challenged_rolls, dice_str):
         """Logs the result of a dice duel into the dice_duel_results table."""
+
         timestamp = datetime.now().isoformat()
+
         with self.conn:
             self.conn.execute('''
                 INSERT INTO dice_duel_results (
@@ -468,7 +471,6 @@ class DiceDuel(commands.Cog):
     async def on_ready(self):
         print(f"{self.__class__.__name__} cog is ready.")
 
-    # Method to be called by the Dice cog when a user rolls
     async def handle_roll(self, user_id, result, rolls, dice_str):
         """
         Handles a roll made by a user in a duel.
@@ -497,7 +499,7 @@ class DiceDuel(commands.Cog):
                 # Check if the dice_str matches
                 if duel_data['dice_str'] != dice_str:
                     # Ignore rolls with incorrect dice_str
-                    return
+                    continue
 
                 if user_id == challenger_id:
                     self.pending_rolls[(challenger_id, challenged_id)]['challenger_roll'] = {'result': result, 'rolls': rolls}
@@ -511,11 +513,11 @@ class DiceDuel(commands.Cog):
                     await self.resolve_duel(challenger_id, challenged_id)
                 return  # Exit after handling the duel
 
-    # Set up the cog
-    async def setup(bot):
-        """Load the DiceDuel cog into the bot.
+# Set up the cog
+async def setup(bot):
+    """Load the DiceDuel cog into the bot.
 
-        Args:
-            bot: An instance of the Discord bot.
-        """
-        await bot.add_cog(DiceDuel(bot))
+    Args:
+        bot: An instance of the Discord bot.
+    """
+    await bot.add_cog(DiceDuel(bot))

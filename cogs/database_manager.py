@@ -98,26 +98,23 @@ class DatabaseManager(commands.Cog):
                 )
             ''')
 
-            # Create dice_duel_results table with guild_id NOT NULL
+            # dice_duel_results table
             self.conn.execute('''
-                CREATE TABLE IF NOT EXISTS dice_duel_results (
-                    duel_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    guild_id INTEGER NOT NULL,
-                    challenger_id INTEGER NOT NULL,
-                    challenged_id INTEGER NOT NULL,
-                    amount INTEGER NOT NULL,
-                    winner_id INTEGER NOT NULL,
-                    loser_id INTEGER NOT NULL,
-                    challenger_result INTEGER NOT NULL,
-                    challenged_result INTEGER NOT NULL,
-                    challenger_rolls TEXT NOT NULL,
-                    challenged_rolls TEXT NOT NULL,
-                    dice_str TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+            CREATE TABLE IF NOT EXISTS dice_duel_results (
+                result_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                challenger_id INTEGER NOT NULL,
+                challenged_id INTEGER NOT NULL,
+                amount INTEGER NOT NULL,
+                winner_id INTEGER,
+                loser_id INTEGER,
+                challenger_result INTEGER,
+                challenged_result INTEGER,
+                challenger_rolls TEXT,
+                challenged_rolls TEXT,
+                dice_str TEXT,
+                timestamp TEXT NOT NULL
                 )
             ''')
-
             # Create rps_game table with guild_id NOT NULL
             self.conn.execute('''
                 CREATE TABLE IF NOT EXISTS rps_game (

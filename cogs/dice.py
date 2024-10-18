@@ -10,8 +10,9 @@ import sqlite3  # Import sqlite3 for database interaction
 class Dice(commands.Cog):
     """
     A Discord cog that allows users to roll dice in the format XdY+Z.
+    Users can perform standalone dice rolls or participate in duels.
     """
-    
+
     def __init__(self, bot):
         """
         Initialize the Dice cog.
@@ -30,6 +31,7 @@ class Dice(commands.Cog):
     @discord.app_commands.describe(dice="The dice roll command (e.g., 2d6+4 or d20).")
     async def roll(self, interaction: discord.Interaction, dice: str):
         """Parses and rolls the dice based on the format provided by the user (XdY+Z)."""
+
         user = interaction.user
         user_id = user.id
 
@@ -50,7 +52,7 @@ class Dice(commands.Cog):
 
             await interaction.response.send_message(response)
         except ValueError as e:
-            await interaction.response.send_message(f"Error: {str(e)}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
 
     def parse_dice_roll(self, dice_str: str):
         """
@@ -115,11 +117,11 @@ class Dice(commands.Cog):
     async def on_ready(self):
         print(f"{self.__class__.__name__} cog is ready.")
 
-    # Set up the cog
-    async def setup(bot):
-        """Load the Dice cog into the bot.
+# Set up the cog
+async def setup(bot):
+    """Load the Dice cog into the bot.
 
-        Args:
-            bot: An instance of the Discord bot.
-        """
-        await bot.add_cog(Dice(bot))
+    Args:
+        bot: An instance of the Discord bot.
+    """
+    await bot.add_cog(Dice(bot))
