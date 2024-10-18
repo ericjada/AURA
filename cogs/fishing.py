@@ -1,4 +1,6 @@
-import random
+# fishing.py
+
+import random 
 import discord
 from discord.ext import commands
 from datetime import datetime
@@ -18,7 +20,7 @@ class Fishing(commands.Cog):
             bot: An instance of the Discord bot.
         """
         self.bot = bot
-        self.conn = sqlite3.connect('./group_memories/aura_memory.db')
+        self.conn = sqlite3.connect('./group_memories/aura_memory.db', check_same_thread=False)
         self.conn.row_factory = sqlite3.Row  # Enable dictionary-like cursor
         self.cursor = self.conn.cursor()
 
@@ -32,7 +34,7 @@ class Fishing(commands.Cog):
                 CREATE TABLE IF NOT EXISTS fishing_inventory (
                     user_id INTEGER NOT NULL,
                     bait INTEGER DEFAULT 0,
-                    fish_name TEXT,
+                    fish_name TEXT NOT NULL,
                     quantity INTEGER DEFAULT 0,
                     PRIMARY KEY (user_id, fish_name)
                 )
@@ -70,19 +72,19 @@ class Fishing(commands.Cog):
 
                 # Update the user's bait count in the fishing_inventory table
                 self.cursor.execute('''
-                    SELECT bait FROM fishing_inventory WHERE user_id = ? AND fish_name IS NULL
+                    SELECT bait FROM fishing_inventory WHERE user_id = ? AND fish_name = 'Bait'
                 ''', (user_id,))
                 result = self.cursor.fetchone()
                 if result:
                     # User already has bait entry, update it
                     self.cursor.execute('''
-                        UPDATE fishing_inventory SET bait = bait + ? WHERE user_id = ? AND fish_name IS NULL
+                        UPDATE fishing_inventory SET bait = bait + ? WHERE user_id = ? AND fish_name = 'Bait'
                     ''', (quantity, user_id))
                 else:
                     # User does not have bait entry, insert new
                     self.cursor.execute('''
-                        INSERT INTO fishing_inventory (user_id, bait) VALUES (?, ?)
-                    ''', (user_id, quantity))
+                        INSERT INTO fishing_inventory (user_id, bait, fish_name, quantity) VALUES (?, ?, ?, ?)
+                    ''', (user_id, quantity, 'Bait', 0))
 
             await interaction.followup.send(f"You have purchased {quantity} bait(s). Happy fishing!")
 
@@ -104,7 +106,7 @@ class Fishing(commands.Cog):
         try:
             # Check if the user has bait
             self.cursor.execute('''
-                SELECT bait FROM fishing_inventory WHERE user_id = ? AND fish_name IS NULL
+                SELECT bait FROM fishing_inventory WHERE user_id = ? AND fish_name = 'Bait'
             ''', (user_id,))
             result = self.cursor.fetchone()
             bait_count = result['bait'] if result else 0
@@ -116,7 +118,7 @@ class Fishing(commands.Cog):
             # Deduct one bait
             with self.conn:
                 self.conn.execute('''
-                    UPDATE fishing_inventory SET bait = bait - 1 WHERE user_id = ? AND fish_name IS NULL
+                    UPDATE fishing_inventory SET bait = bait - 1 WHERE user_id = ? AND fish_name = 'Bait'
                 ''', (user_id,))
 
             # Simulate fishing
@@ -193,7 +195,7 @@ class Fishing(commands.Cog):
         try:
             # Retrieve the user's fish inventory
             self.cursor.execute('''
-                SELECT fish_name, quantity FROM fishing_inventory WHERE user_id = ? AND fish_name IS NOT NULL
+                SELECT fish_name, quantity FROM fishing_inventory WHERE user_id = ? AND fish_name != 'Bait'
             ''', (user_id,))
             fish_inventory = self.cursor.fetchall()
 
@@ -226,7 +228,7 @@ class Fishing(commands.Cog):
         try:
             # Retrieve the user's fish inventory
             self.cursor.execute('''
-                SELECT fish_name, quantity FROM fishing_inventory WHERE user_id = ? AND fish_name IS NOT NULL
+                SELECT fish_name, quantity FROM fishing_inventory WHERE user_id = ? AND fish_name != 'Bait'
             ''', (user_id,))
             fish_inventory = self.cursor.fetchall()
 
@@ -255,7 +257,7 @@ class Fishing(commands.Cog):
 
                 # Remove the fish from the inventory
                 self.conn.execute('''
-                    DELETE FROM fishing_inventory WHERE user_id = ? AND fish_name IS NOT NULL
+                    DELETE FROM fishing_inventory WHERE user_id = ? AND fish_name != 'Bait'
                 ''', (user_id,))
 
             await interaction.followup.send(f"You sold all your fish for {total_earnings} AC! Your new balance is {new_balance} AC.")
@@ -292,7 +294,7 @@ class Fishing(commands.Cog):
         try:
             # Retrieve the user's bait count
             self.cursor.execute('''
-                SELECT bait FROM fishing_inventory WHERE user_id = ? AND fish_name IS NULL
+                SELECT bait FROM fishing_inventory WHERE user_id = ? AND fish_name = 'Bait'
             ''', (user_id,))
             result = self.cursor.fetchone()
             bait_count = result['bait'] if result else 0
@@ -326,12 +328,19 @@ class Fishing(commands.Cog):
             top_fishers = cursor.fetchall()
 
             # Format the output
-            leaderboard_message = "**Top 5 Fishers:**\n"
-            for i, row in enumerate(top_fishers, start=1):
-                player_id = row['player_id']
-                total_earnings = row['total_earnings']
-                user = await self.bot.fetch_user(player_id)
-                leaderboard_message += f"{i}. {user.name} - {total_earnings} AC earned from fishing\n"
+            if top_fishers:
+                leaderboard_message = "**Top 5 Fishers:**\n"
+                for i, row in enumerate(top_fishers, start=1):
+                    player_id = row['player_id']
+                    total_earnings = row['total_earnings']
+                    try:
+                        user = await self.bot.fetch_user(player_id)
+                        username = user.name
+                    except discord.NotFound:
+                        username = f"User ID {player_id}"
+                    leaderboard_message += f"{i}. {username} - {total_earnings} AC earned from fishing\n"
+            else:
+                leaderboard_message = "No fishing data available yet."
 
             await interaction.followup.send(leaderboard_message)
 
@@ -359,14 +368,18 @@ class Fishing(commands.Cog):
         """
         timestamp = datetime.now().isoformat()
         user_id = interaction.user.id
-        guild_id = interaction.guild.id if interaction.guild else None
         username = interaction.user.name
 
-        with self.conn:
-            self.conn.execute('''
-                INSERT INTO logs (log_type, log_message, timestamp, guild_id, user_id, username)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', ('COMMAND_USAGE', f"({username}) executed {command_name}.", timestamp, guild_id, user_id, username))
+        # Log only by user_id, remove guild_id to prevent FOREIGN KEY constraint failures
+        try:
+            with self.conn:
+                self.conn.execute('''
+                    INSERT INTO logs (log_type, log_message, timestamp, user_id, username)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', ('COMMAND_USAGE', f"({username}) executed {command_name}.", timestamp, user_id, username))
+        except sqlite3.IntegrityError as e:
+            print(f"Database integrity error in log_command_usage: {e}")
+            # Not critical, so we don't raise an exception
 
 # Set up the cog
 async def setup(bot):

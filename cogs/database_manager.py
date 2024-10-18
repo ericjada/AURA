@@ -147,16 +147,14 @@ class DatabaseManager(commands.Cog):
                 )
             ''')
 
-            # Create fishing_inventory table with guild_id NOT NULL
+            # Create fishing_inventory table without guild_id
             self.conn.execute('''
                 CREATE TABLE IF NOT EXISTS fishing_inventory (
-                    guild_id INTEGER NOT NULL,
                     user_id INTEGER NOT NULL,
                     bait INTEGER DEFAULT 0,
                     fish_name TEXT NOT NULL,
                     quantity INTEGER DEFAULT 0,
-                    PRIMARY KEY (guild_id, user_id, fish_name),
-                    FOREIGN KEY(guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
+                    PRIMARY KEY (user_id, fish_name)
                 )
             ''')
 

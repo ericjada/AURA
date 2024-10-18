@@ -1,3 +1,5 @@
+# dice.py
+
 import discord
 import random
 import re  # Import regex to parse the dice roll string
@@ -9,7 +11,7 @@ class Dice(commands.Cog):
     """
     A Discord cog that allows users to roll dice in the format XdY+Z.
     """
-
+    
     def __init__(self, bot):
         """
         Initialize the Dice cog.
@@ -20,12 +22,17 @@ class Dice(commands.Cog):
         self.bot = bot
 
         # Initialize SQLite database connection for logging
-        self.conn = sqlite3.connect('./group_memories/aura_memory.db')  # Ensure the correct path to your database
+        self.conn = sqlite3.connect('./group_memories/aura_memory.db', check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row  # Enable dictionary-like cursor
+        self.cursor = self.conn.cursor()
 
-    @discord.app_commands.command(name="roll", description="Roll dice in the format XdY+Z (e.g. 2d6+4 or 2d20).")
+    @discord.app_commands.command(name="roll", description="Roll dice in the format XdY+Z (e.g. 2d6+4 or d20).")
     @discord.app_commands.describe(dice="The dice roll command (e.g., 2d6+4 or d20).")
     async def roll(self, interaction: discord.Interaction, dice: str):
         """Parses and rolls the dice based on the format provided by the user (XdY+Z)."""
+        user = interaction.user
+        user_id = user.id
+
         try:
             result, rolls, modifier = self.parse_dice_roll(dice)
             rolls_str = ', '.join(str(roll) for roll in rolls)
@@ -35,6 +42,11 @@ class Dice(commands.Cog):
 
             # Log the command usage and result
             self.log_command_usage(interaction, dice, rolls, result)
+
+            # Check if the user is in an active duel that requires this roll
+            dice_duel_cog = self.bot.get_cog('DiceDuel')
+            if dice_duel_cog:
+                await dice_duel_cog.handle_roll(user_id, result, rolls, dice)
 
             await interaction.response.send_message(response)
         except ValueError as e:
@@ -54,7 +66,7 @@ class Dice(commands.Cog):
             - modifier: The numeric modifier applied to the result.
         """
         # Regex to match patterns like '2d6+4', 'd20', '4d8', or 'd12-2'
-        dice_pattern = r"(?:(\d*)d)?(\d+)([+-]\d+)?"
+        dice_pattern = r"(?:(\d+)d)?(\d+)([+-]\d+)?"
         match = re.fullmatch(dice_pattern, dice_str.replace(" ", ""))  # Remove spaces before matching
 
         if not match:
@@ -85,26 +97,29 @@ class Dice(commands.Cog):
         """
         timestamp = datetime.now().isoformat()
         user_id = interaction.user.id
-        guild_id = interaction.guild.id if interaction.guild else 'DM'  # Handle DMs by assigning 'DM'
-        channel_id = interaction.channel.id if interaction.channel else 'DM'
         username = interaction.user.name
+
         rolls_str = ', '.join(str(roll) for roll in rolls)
 
         # Insert log into the SQLite database
         with self.conn:
             self.conn.execute('''
-                INSERT INTO logs (log_type, log_message, timestamp, guild_id, user_id, username)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO logs (log_type, log_message, timestamp, user_id, username)
+                VALUES (?, ?, ?, ?, ?)
             ''', ('ROLL_COMMAND', f"({username}) rolled {dice_str}: {rolls_str} (Total: {result})", 
-                  timestamp, guild_id, user_id, username))
+                  timestamp, user_id, username))
 
         print(f"Logged: {username} rolled {dice_str} resulting in {result}.")
 
-# Set up the cog
-async def setup(bot):
-    """Load the Dice cog into the bot.
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print(f"{self.__class__.__name__} cog is ready.")
 
-    Args:
-        bot: An instance of the Discord bot.
-    """
-    await bot.add_cog(Dice(bot))
+    # Set up the cog
+    async def setup(bot):
+        """Load the Dice cog into the bot.
+
+        Args:
+            bot: An instance of the Discord bot.
+        """
+        await bot.add_cog(Dice(bot))
