@@ -5,6 +5,7 @@ import os
 import asyncio
 import subprocess
 from discord.ext import commands
+from discord import app_commands
 from datetime import datetime
 import sqlite3  # Import sqlite3 for database interaction
 
@@ -26,11 +27,11 @@ class Chat(commands.Cog):
         self.model = "llama3.2"  # Specify the LLaMA model to use
         self.memory_directory = 'user_memories'  # Directory to save user memory files
         os.makedirs(self.memory_directory, exist_ok=True)  # Create the directory if it doesn't exist
-        self.lock = asyncio.Lock()  # Initialize a lock to ensure only one user can use the command at a time
         self.default_system_prompt = "You are a helpful assistant."  # Default system message
 
         # Initialize SQLite database connection
-        self.conn = sqlite3.connect('./group_memories/aura_memory.db')  # Update with the correct path
+        self.conn = sqlite3.connect('./group_memories/aura_memory.db', check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row  # To access columns by name
 
         # Start ollama serve when the bot is initialized
         self.start_ollama_serve()
@@ -40,7 +41,7 @@ class Chat(commands.Cog):
         try:
             # Check if the 'ollama' process is already running
             result = subprocess.run(['tasklist'], capture_output=True, text=True)
-            if 'ollama' not in result.stdout:
+            if 'ollama.exe' not in result.stdout and 'ollama' not in result.stdout:
                 subprocess.Popen(['ollama', 'serve'])  # Start the ollama serve process
                 print("Ollama serve has been started.")
             else:
@@ -74,8 +75,8 @@ class Chat(commands.Cog):
         with open(memory_file, 'w') as file:
             json.dump(memory_data, file)  # Save memory data to file
 
-    @discord.app_commands.command(name="chat", description="Chat with the LLaMA model.")
-    @discord.app_commands.describe(prompt="The message you want to send to the assistant.")
+    @app_commands.command(name="chat", description="Chat with the LLaMA model.")
+    @app_commands.describe(prompt="The message you want to send to the assistant.")
     async def chat(self, interaction: discord.Interaction, prompt: str):
         """Generates a response from the LLaMA model based on the given prompt.
 
@@ -85,22 +86,22 @@ class Chat(commands.Cog):
         """
         user_id = str(interaction.user.id)  # Get the user ID
         username = str(interaction.user)  # Get the username
-        guild_id = str(interaction.guild.id) if interaction.guild else 'DM'
-        channel_id = str(interaction.channel.id) if interaction.channel else 'DM'
-
 
         print(f"{username} used /chat with prompt: {prompt}")
 
-        # Log the command usage
+        # Log the command usage asynchronously
         self.log_command_usage(interaction, "chat", prompt)
 
         if not prompt:
-            await interaction.response.send_message("Please provide a prompt for the model.")
+            await interaction.response.send_message("Please provide a prompt for the model.", ephemeral=True)
             return
 
-        async with self.lock:  # Ensure only one user can use the command at a time
-            # Load the user's conversation history and system prompt
-            memory_data = self.load_memory(user_id)
+        # Defer the interaction immediately to avoid timeout
+        await interaction.response.defer(thinking=True)
+
+        try:
+            # Load the user's conversation history and system prompt asynchronously
+            memory_data = await asyncio.to_thread(self.load_memory, user_id)
 
             # Store the user's name if it hasn't been set
             if not memory_data['name']:
@@ -116,41 +117,37 @@ class Chat(commands.Cog):
             # Add the user prompt to the conversation history
             memory_data['history'].append({'role': 'user', 'content': prompt})
 
-            # Acknowledge the interaction and show a "thinking" indicator
-            await interaction.response.defer(thinking=True)
+            # Prepare the message for the Ollama API, including user's conversation history
+            messages = memory_data['history'].copy()
 
-            try:
-                # Prepare the message for the Ollama API, including user's conversation history
-                messages = memory_data['history'].copy()
+            # Using ollama to generate a response asynchronously
+            response = await asyncio.to_thread(ollama.chat, model=self.model, messages=messages)
+            print("Ollama response:", response)  # Print the entire response for inspection
 
-                # Using ollama to generate a response
-                response = ollama.chat(model=self.model, messages=messages)
-                print("Ollama response:", response)  # Print the entire response for inspection
+            # Extract the content from the response
+            bot_response = response['message']['content']
 
-                # Extract the content from the response
-                bot_response = response['message']['content']
+            # Send the response in chunks if it's too long
+            await send_message_in_chunks(interaction, bot_response)
 
-                # Send the response in chunks if it's too long
-                await send_message_in_chunks(interaction, bot_response)
+            # Add the bot's response to the conversation history
+            memory_data['history'].append({'role': 'assistant', 'content': bot_response})
 
-                # Add the bot's response to the conversation history
-                memory_data['history'].append({'role': 'assistant', 'content': bot_response})
+            # Save the updated conversation history asynchronously
+            await asyncio.to_thread(self.save_memory, user_id, memory_data)
 
-                # Save the updated conversation history
-                self.save_memory(user_id, memory_data)
+            # Log the bot's response asynchronously
+            self.log_command_usage(interaction, "chat_response", bot_response)
 
-                # Log the bot's response
-                self.log_command_usage(interaction, "chat_response", bot_response)
+        except KeyError as e:
+            await interaction.followup.send(f'Error: The response structure from the API is unexpected. {str(e)}', ephemeral=True)
+        except json.JSONDecodeError:
+            await interaction.followup.send('Error: Failed to decode the JSON response from the API.', ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f'An error occurred while generating a response: {str(e)}', ephemeral=True)
 
-            except KeyError as e:
-                await interaction.followup.send(f'Error: The response structure from the API is unexpected. {str(e)}')
-            except json.JSONDecodeError:
-                await interaction.followup.send('Error: Failed to decode the JSON response from the API.')
-            except Exception as e:
-                await interaction.followup.send(f'An error occurred while generating a response: {str(e)}')
-
-    @discord.app_commands.command(name="set_prompt", description="Sets the system prompt for the assistant.")
-    @discord.app_commands.describe(system_prompt="The new system prompt.")
+    @app_commands.command(name="set_prompt", description="Sets the system prompt for the assistant.")
+    @app_commands.describe(system_prompt="The new system prompt.")
     async def set_prompt(self, interaction: discord.Interaction, system_prompt: str):
         """Sets the initial system prompt for the user's chat sessions.
 
@@ -159,18 +156,28 @@ class Chat(commands.Cog):
             system_prompt: The new system prompt to be set.
         """
         user_id = str(interaction.user.id)  # Get the user ID
-        memory_data = self.load_memory(user_id)
 
-        # Update the system prompt
-        memory_data['system_prompt'] = system_prompt
-        self.save_memory(user_id, memory_data)
+        # Defer the interaction to allow time for processing
+        await interaction.response.defer(thinking=True)
 
-        # Log the command usage
-        self.log_command_usage(interaction, "set_prompt", system_prompt)
+        try:
+            # Load memory asynchronously
+            memory_data = await asyncio.to_thread(self.load_memory, user_id)
 
-        await interaction.response.send_message(f"Your system prompt has been updated to: '{system_prompt}'")
+            # Update the system prompt
+            memory_data['system_prompt'] = system_prompt
 
-    @discord.app_commands.command(name="reset_memory", description="Resets your conversation memory.")
+            # Save memory asynchronously
+            await asyncio.to_thread(self.save_memory, user_id, memory_data)
+
+            # Log the command usage asynchronously
+            self.log_command_usage(interaction, "set_prompt", system_prompt)
+
+            await interaction.followup.send(f"Your system prompt has been updated to: '{system_prompt}'", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"Failed to set system prompt: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="reset_memory", description="Resets your conversation memory.")
     async def reset_memory(self, interaction: discord.Interaction):
         """Resets the user's conversation memory.
 
@@ -180,14 +187,21 @@ class Chat(commands.Cog):
         user_id = str(interaction.user.id)  # Get the user ID
         memory_file = os.path.join(self.memory_directory, f'{user_id}.json')
 
-        if os.path.exists(memory_file):
-            os.remove(memory_file)  # Delete the user's memory file
-            await interaction.response.send_message("Your conversation memory has been reset.")
+        # Defer the interaction to allow time for processing
+        await interaction.response.defer(thinking=True)
 
-            # Log the command usage
-            self.log_command_usage(interaction, "reset_memory", "Memory reset.")
-        else:
-            await interaction.response.send_message("No memory found to reset.")
+        try:
+            if os.path.exists(memory_file):
+                # Delete the user's memory file asynchronously
+                await asyncio.to_thread(os.remove, memory_file)
+                await interaction.followup.send("Your conversation memory has been reset.", ephemeral=True)
+
+                # Log the command usage asynchronously
+                self.log_command_usage(interaction, "reset_memory", "Memory reset.")
+            else:
+                await interaction.followup.send("No memory found to reset.", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"Failed to reset memory: {str(e)}", ephemeral=True)
 
     def log_command_usage(self, interaction, command_name, details):
         """Logs the command usage to the database.
@@ -199,17 +213,44 @@ class Chat(commands.Cog):
         """
         timestamp = datetime.now().isoformat()
         user_id = interaction.user.id
-        guild_id = interaction.guild.id if interaction.guild else None
-        channel_id = interaction.channel.id if interaction.channel else None
         username = interaction.user.name
 
-        with self.conn:
-            self.conn.execute(''' 
-                INSERT INTO logs (log_type, log_message, timestamp, guild_id, user_id, username)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', ('COMMAND_USAGE', f"({username}) executed {command_name}.", timestamp, guild_id, user_id, username))
+        try:
+            # Execute the insert operation in a separate thread to prevent blocking
+            asyncio.create_task(self.execute_log_insert(
+                'COMMAND_USAGE',
+                f"({username}) executed {command_name}. Details: {details}",
+                timestamp,
+                user_id,
+                username
+            ))
+        except Exception as e:
+            print(f"Failed to log command usage: {str(e)}")
 
-async def send_message_in_chunks(interaction, message, chunk_size=2000):
+    async def execute_log_insert(self, log_type, log_message, timestamp, user_id, username):
+        """Asynchronously inserts a log entry into the database.
+
+        Args:
+            log_type: The type/category of the log.
+            log_message: The log message detailing the action.
+            timestamp: The timestamp of the log entry.
+            user_id: The ID of the user who executed the command.
+            username: The username of the user who executed the command.
+        """
+        try:
+            await asyncio.to_thread(self.conn.execute, '''
+                INSERT INTO logs (log_type, log_message, timestamp, user_id, username)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (log_type, log_message, timestamp, user_id, username))
+            await asyncio.to_thread(self.conn.commit)
+        except sqlite3.IntegrityError as e:
+            print(f"Database integrity error in log_command_usage: {e}")
+            # Not critical, so we don't raise an exception
+        except Exception as e:
+            print(f"Unexpected error in log_command_usage: {e}")
+            # Not critical, so we don't raise an exception
+
+async def send_message_in_chunks(interaction, message, chunk_size=1900):
     """Sends a message in chunks if it exceeds the specified chunk size.
 
     Args:
