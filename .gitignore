@@ -9,3 +9,12 @@ group_memories/working_AURA.py_content.md
 cogs/testing.py
 cogs/AURA.py
 group_memories/AURA_Images/AURA.py
+/generated_images
+/product_data
+cogs/AmazonReview.py
+sv4dchat.log
+sv4dchat.db
+test.py
+*.db
+*.log
+cogs/sv4d.py
