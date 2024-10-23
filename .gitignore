@@ -18,3 +18,4 @@ test.py
 *.db
 *.log
 cogs/sv4d.py
+cogs/scanner.py
