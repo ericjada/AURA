@@ -113,10 +113,6 @@ class Dice(commands.Cog):
 
         print(f"Logged: {username} rolled {dice_str} resulting in {result}.")
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print(f"{self.__class__.__name__} cog is ready.")
-
 # Set up the cog
 async def setup(bot):
     """Load the Dice cog into the bot.

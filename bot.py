@@ -44,23 +44,14 @@ bot = commands.Bot(
 # Initialize SQLite database connection
 conn = sqlite3.connect('./group_memories/aura_memory.db')  # Update with the correct path
 
-async def load_cogs():
-    """
-    Asynchronously loads all cogs (extensions) from the 'cogs' folder.
-    Each file in the folder must have a .py extension.
-    
-    Raises:
-        Exception: If a cog fails to load, an error message will be printed.
-    """
-    for filename in os.listdir('./cogs'):  # Iterate through each file in the 'cogs' directory
-        if filename.endswith('.py'):  # Check for Python files
+async def setup(bot):
+    for filename in os.listdir('./cogs'):
+        if filename.endswith('.py'):
             try:
-                # Load the cog extension
-                await bot.load_extension(f'cogs.{filename[:-3]}')  # Load the cog without the .py extension
-                print(f'Loaded cog: {filename[:-3]}')  # Confirm successful loading
+                await bot.load_extension(f'cogs.{filename[:-3]}')
+                print(f'Loaded cog: {filename[:-3]}')
             except Exception as e:
-                # Handle failure to load the cog
-                print(f'Failed to load cog {filename[:-3]}: {e}')  # Print the error message
+                print(f'Failed to load {filename}: {e}')
 
 @bot.event
 async def on_ready():
@@ -89,7 +80,7 @@ async def main():
     """
     try:
         async with bot:
-            await load_cogs()  # Load all cogs before starting the bot
+            await setup(bot)  # Load all cogs before starting the bot
             await bot.start(TOKEN)  # Start the bot using the token
     except Exception as e:
         # Handle any exception that occurs during bot startup

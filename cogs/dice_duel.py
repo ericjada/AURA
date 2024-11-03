@@ -467,9 +467,6 @@ class DiceDuel(commands.Cog):
                 challenger_rolls, challenged_rolls, dice_str, timestamp
             ))
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print(f"{self.__class__.__name__} cog is ready.")
 
     async def handle_roll(self, user_id, result, rolls, dice_str):
         """
