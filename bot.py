@@ -32,10 +32,14 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 
 # Create bot instance with intents to listen for messages and message content
 intents = discord.Intents.default()
-intents.messages = True
-intents.message_content = True
-intents.dm_messages = True  # Allow the bot to listen to DMs
-bot = commands.Bot(command_prefix='/', intents=intents)
+intents.message_content = True  # Required to read message content
+intents.dm_messages = True      # Required for DMs
+intents.guilds = True          # Required for guild/server stuff
+bot = commands.Bot(
+    command_prefix='!',
+    intents=intents,
+    description='SV4D Bot'
+)
 
 # Initialize SQLite database connection
 conn = sqlite3.connect('./group_memories/aura_memory.db')  # Update with the correct path

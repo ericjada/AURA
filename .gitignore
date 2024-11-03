@@ -19,3 +19,7 @@ test.py
 *.log
 cogs/sv4d.py
 cogs/scanner.py
+/__pycache__
+/cogs/checkpoints
+/generated_videos
+/group_memories

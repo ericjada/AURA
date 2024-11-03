@@ -8,6 +8,7 @@ from discord.ext import commands
 from discord import app_commands
 from datetime import datetime
 import sqlite3  # Import sqlite3 for database interaction
+import aiofiles  # Import aiofiles for asynchronous file operations
 
 class Chat(commands.Cog):
     """
@@ -25,16 +26,25 @@ class Chat(commands.Cog):
         """
         self.bot = bot
         self.model = "llama3.2"  # Specify the LLaMA model to use
-        self.memory_directory = 'user_memories'  # Directory to save user memory files
-        os.makedirs(self.memory_directory, exist_ok=True)  # Create the directory if it doesn't exist
+        self.memory_directory = {
+            'individual': 'user_memories',
+        }
+        os.makedirs(self.memory_directory['individual'], exist_ok=True)
         self.default_system_prompt = "You are a helpful assistant."  # Default system message
 
         # Initialize SQLite database connection
-        self.conn = sqlite3.connect('./group_memories/aura_memory.db', check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row  # To access columns by name
+        self.db_path = './group_memories/aura_memory.db'
+        self.conn = self._create_db_connection()
+        self._initialize_group_tables()
 
         # Start ollama serve when the bot is initialized
         self.start_ollama_serve()
+
+    def _create_db_connection(self):
+        """Creates a new database connection with proper row factory."""
+        conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
 
     def start_ollama_serve(self):
         """Starts the ollama serve process in the background if it's not already running."""
@@ -58,7 +68,7 @@ class Chat(commands.Cog):
         Returns:
             dict: A dictionary containing user's name, history, and system prompt.
         """
-        memory_file = os.path.join(self.memory_directory, f'{user_id}.json')
+        memory_file = os.path.join(self.memory_directory['individual'], f'{user_id}.json')
         if os.path.exists(memory_file):
             with open(memory_file, 'r') as file:
                 return json.load(file)  # Load existing memory data
@@ -71,80 +81,174 @@ class Chat(commands.Cog):
             user_id: The ID of the user whose memory is being saved.
             memory_data: The data to be saved, including history and system prompt.
         """
-        memory_file = os.path.join(self.memory_directory, f'{user_id}.json')
+        memory_file = os.path.join(self.memory_directory['individual'], f'{user_id}.json')
         with open(memory_file, 'w') as file:
             json.dump(memory_data, file)  # Save memory data to file
 
-    @app_commands.command(name="chat", description="Chat with the LLaMA model.")
-    @app_commands.describe(prompt="The message you want to send to the assistant.")
-    async def chat(self, interaction: discord.Interaction, prompt: str):
-        """Generates a response from the LLaMA model based on the given prompt.
-
-        Args:
-            interaction: The interaction that triggered this command.
-            prompt: The user's message to send to the model.
-        """
-        user_id = str(interaction.user.id)  # Get the user ID
-        username = str(interaction.user)  # Get the username
-
-        print(f"{username} used /chat with prompt: {prompt}")
-
-        # Log the command usage asynchronously
-        self.log_command_usage(interaction, "chat", prompt)
-
-        if not prompt:
-            await interaction.response.send_message("Please provide a prompt for the model.", ephemeral=True)
-            return
-
-        # Defer the interaction immediately to avoid timeout
-        await interaction.response.defer(thinking=True)
-
+    def _initialize_group_tables(self):
+        """Creates the necessary tables for group chat memory if they don't exist."""
         try:
-            # Load the user's conversation history and system prompt asynchronously
-            memory_data = await asyncio.to_thread(self.load_memory, user_id)
-
-            # Store the user's name if it hasn't been set
-            if not memory_data['name']:
-                memory_data['name'] = username
-
-            # Ensure the system prompt is always included at the beginning of the conversation
-            system_message = {'role': 'system', 'content': memory_data.get('system_prompt', self.default_system_prompt)}
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS group_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    channel_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    username TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    timestamp TEXT NOT NULL
+                )
+            ''')
             
-            # Check if the system message is already in the history
-            if len(memory_data['history']) == 0 or memory_data['history'][0]['role'] != 'system':
-                memory_data['history'].insert(0, system_message)  # Always ensure system prompt is the first message
-
-            # Add the user prompt to the conversation history
-            memory_data['history'].append({'role': 'user', 'content': prompt})
-
-            # Prepare the message for the Ollama API, including user's conversation history
-            messages = memory_data['history'].copy()
-
-            # Using ollama to generate a response asynchronously
-            response = await asyncio.to_thread(ollama.chat, model=self.model, messages=messages)
-            print("Ollama response:", response)  # Print the entire response for inspection
-
-            # Extract the content from the response
-            bot_response = response['message']['content']
-
-            # Send the response in chunks if it's too long
-            await send_message_in_chunks(interaction, bot_response)
-
-            # Add the bot's response to the conversation history
-            memory_data['history'].append({'role': 'assistant', 'content': bot_response})
-
-            # Save the updated conversation history asynchronously
-            await asyncio.to_thread(self.save_memory, user_id, memory_data)
-
-            # Log the bot's response asynchronously
-            self.log_command_usage(interaction, "chat_response", bot_response)
-
-        except KeyError as e:
-            await interaction.followup.send(f'Error: The response structure from the API is unexpected. {str(e)}', ephemeral=True)
-        except json.JSONDecodeError:
-            await interaction.followup.send('Error: Failed to decode the JSON response from the API.', ephemeral=True)
+            self.conn.execute('''
+                CREATE TABLE IF NOT EXISTS group_settings (
+                    channel_id TEXT PRIMARY KEY,
+                    system_prompt TEXT NOT NULL,
+                    last_updated TEXT NOT NULL
+                )
+            ''')
+            self.conn.commit()
         except Exception as e:
-            await interaction.followup.send(f'An error occurred while generating a response: {str(e)}', ephemeral=True)
+            print(f"Failed to initialize group tables: {str(e)}")
+
+    async def load_group_memory(self, channel_id):
+        """Loads the conversation history for a group channel from database."""
+        try:
+            # Get system prompt
+            cursor = self.conn.execute(
+                'SELECT system_prompt FROM group_settings WHERE channel_id = ?',
+                (channel_id,)
+            )
+            result = cursor.fetchone()
+            system_prompt = result[0] if result else self.default_system_prompt
+
+            # Get recent messages (last 20 for example)
+            cursor = self.conn.execute('''
+                SELECT role, content, timestamp 
+                FROM group_messages 
+                WHERE channel_id = ? 
+                ORDER BY timestamp DESC LIMIT 20
+            ''', (channel_id,))
+            
+            history = [
+                {
+                    'role': row[0],
+                    'content': row[1],
+                    'timestamp': row[2]
+                }
+                for row in cursor.fetchall()
+            ]
+            history.reverse()  # Most recent last
+
+            return {
+                'history': history,
+                'system_prompt': system_prompt
+            }
+        except Exception as e:
+            print(f"Failed to load group memory: {str(e)}")
+            return {
+                'history': [],
+                'system_prompt': self.default_system_prompt
+            }
+
+    async def save_group_memory(self, channel_id, user_id, username, role, content):
+        """Saves a new message to the group chat history in database."""
+        try:
+            timestamp = datetime.now().isoformat()
+            await asyncio.to_thread(
+                self.conn.execute,
+                '''
+                INSERT INTO group_messages (channel_id, user_id, username, role, content, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ''',
+                (channel_id, user_id, username, role, content, timestamp)
+            )
+            await asyncio.to_thread(self.conn.commit)
+        except Exception as e:
+            print(f"Failed to save group memory: {str(e)}")
+
+    @app_commands.command(name="chat")
+    @app_commands.describe(
+        prompt="Your message to the AI",
+        mode="Override the default chat mode (private/group). Only available in servers."
+    )
+    async def chat(self, interaction: discord.Interaction, prompt: str, mode: str = None):
+        """
+        Handle chat interactions with the AI:
+        - DMs are always private
+        - Guild channels default to group but can be overridden
+        """
+        # In DMs, force private mode and ignore any mode parameter
+        if isinstance(interaction.channel, discord.DMChannel):
+            mode = "private"
+        # In guilds, set default or validate override
+        else:
+            if mode is None:
+                mode = "group"
+            elif mode not in ["private", "group"]:
+                await interaction.response.send_message(
+                    "Invalid mode. Please use 'private' or 'group'.", 
+                    ephemeral=True
+                )
+                return
+
+        await interaction.response.defer(thinking=True)
+        
+        try:
+            if mode == "private":
+                memory_data = await asyncio.to_thread(self.load_memory, str(interaction.user.id))
+            else:
+                memory_data = await self.load_group_memory(str(interaction.channel_id))
+
+            # Add username context for all chats
+            user_context = f"{interaction.user.name}: "
+            formatted_prompt = f"{user_context}{prompt}"
+
+            # For group chat, save the user message immediately
+            if mode != "private":
+                await self.save_group_memory(
+                    str(interaction.channel_id),
+                    str(interaction.user.id),
+                    interaction.user.name,
+                    'user',
+                    formatted_prompt
+                )
+
+            # Generate response using updated history
+            response = await asyncio.to_thread(
+                ollama.chat,
+                model=self.model,
+                messages=memory_data['history']
+            )
+
+            bot_response = response['message']['content']
+            
+            # Save the responses
+            if mode == "private":
+                memory_data['history'].append({
+                    'role': 'assistant',
+                    'content': bot_response,
+                    'timestamp': datetime.now().isoformat()
+                })
+                await asyncio.to_thread(self.save_memory, str(interaction.user.id), memory_data)
+            else:
+                await self.save_group_memory(
+                    str(interaction.channel_id),
+                    'assistant',
+                    'Assistant',
+                    'assistant',
+                    bot_response
+                )
+
+            # Send response in chunks if needed
+            await send_message_in_chunks(interaction, bot_response)
+            
+            # Log the interaction
+            self.log_command_usage(interaction, f"{mode}_chat", prompt)
+
+        except Exception as e:
+            await interaction.followup.send(f"An error occurred: {str(e)}", ephemeral=True)
+            self.log_command_usage(interaction, "chat_error", str(e))
 
     @app_commands.command(name="set_prompt", description="Sets the system prompt for the assistant.")
     @app_commands.describe(system_prompt="The new system prompt.")
@@ -185,7 +289,7 @@ class Chat(commands.Cog):
             interaction: The interaction that triggered this command.
         """
         user_id = str(interaction.user.id)  # Get the user ID
-        memory_file = os.path.join(self.memory_directory, f'{user_id}.json')
+        memory_file = os.path.join(self.memory_directory['individual'], f'{user_id}.json')
 
         # Defer the interaction to allow time for processing
         await interaction.response.defer(thinking=True)
@@ -249,6 +353,32 @@ class Chat(commands.Cog):
         except Exception as e:
             print(f"Unexpected error in log_command_usage: {e}")
             # Not critical, so we don't raise an exception
+
+    @app_commands.command(name="set_group_prompt", description="Sets the system prompt for the current channel.")
+    @app_commands.describe(system_prompt="The new system prompt for this channel.")
+    async def set_group_prompt(self, interaction: discord.Interaction, system_prompt: str):
+        """Sets the system prompt for the current channel."""
+        if isinstance(interaction.channel, discord.DMChannel):
+            await interaction.response.send_message("This command can only be used in server channels.", ephemeral=True)
+            return
+
+        await interaction.response.defer(thinking=True)
+
+        try:
+            timestamp = datetime.now().isoformat()
+            await asyncio.to_thread(
+                self.conn.execute,
+                '''
+                INSERT OR REPLACE INTO group_settings (channel_id, system_prompt, last_updated)
+                VALUES (?, ?, ?)
+                ''',
+                (str(interaction.channel_id), system_prompt, timestamp)
+            )
+            await asyncio.to_thread(self.conn.commit)
+            
+            await interaction.followup.send(f"Channel system prompt has been updated.", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"Failed to set system prompt: {str(e)}", ephemeral=True)
 
 async def send_message_in_chunks(interaction, message, chunk_size=1900):
     """Sends a message in chunks if it exceeds the specified chunk size.

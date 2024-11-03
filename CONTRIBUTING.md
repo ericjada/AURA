@@ -6,29 +6,47 @@ Adding new cogs to your Discord bot is simple if you follow these steps:
 Each cog is a Python class stored in its own file within the `cogs` folder.
 
 - Navigate to the `cogs` folder in your project directory.
-- Create a new `.py` file for the cog, naming it according to its purpose, such as `game.py`, `info.py`, or `admin.py`.
+- Create a new `.py` file for the cog, naming it according to its purpose.
+- Use lowercase names and underscores for file names (e.g., `role_manager.py`, `message_handler.py`)
 
 **Examples:**
-- `cogs/admin.py` (for admin-related commands)
-- `cogs/music.py` (for music-related commands)
+- `cogs/ai_chat.py` (for AI chat functionality)
+- `cogs/moderation.py` (for moderation commands)
+- `cogs/settings.py` (for bot configuration commands)
 
 ## 2. Structure the Cog
-Each new cog should follow a similar structure. Here’s a basic template:
+Each new cog should follow this structure:
 
 ```python
+from typing import Optional
 import discord
 from discord.ext import commands
+from discord import app_commands
+from utils.config_loader import Config  # Import project-specific utilities
 
 class NewCog(commands.Cog):
+    """Brief description of what this cog does."""
+    
     def __init__(self, bot):
         self.bot = bot
+        self.config = Config()  # Initialize config for settings
 
-    @commands.command()
-    async def newcommand(self, ctx):
-        """Description of the command."""
-        await ctx.send("This is a new command!")
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Optional: Set up any necessary initialization."""
+        print(f"{self.__class__.__name__} cog has been loaded")
 
-# Setup function to load the cog
+    @app_commands.command()
+    @app_commands.describe(parameter="Description of the parameter")
+    async def slash_command(self, interaction: discord.Interaction, parameter: Optional[str] = None):
+        """Description of the command that appears in Discord."""
+        # Check if the feature is enabled for this guild
+        if not self.config.is_feature_enabled(interaction.guild_id, "feature_name"):
+            await interaction.response.send_message("This feature is not enabled in this server.", ephemeral=True)
+            return
+            
+        await interaction.response.send_message("This is a slash command!")
+
 async def setup(bot):
     await bot.add_cog(NewCog(bot))
 ```
@@ -36,13 +54,25 @@ async def setup(bot):
 ## Steps for Adding Future Cogs
 
 1. **Define the Cog Class:**  
-   Each cog should inherit from `commands.Cog`, and all commands related to that cog should be placed inside this class.
+   - Use clear, descriptive class names
+   - Include docstrings for the class and all commands
+   - Group related commands together
+   - Consider using command groups for related commands
 
-2. **Add the Setup Function:**  
-   Each cog must include a `setup(bot)` function that registers the cog with the bot.
+2. **Choose Command Types:**
+   - Use `@app_commands.command()` for slash commands (preferred for new commands)
+   - Use `@commands.command()` for traditional prefix commands
+   - Consider hybrid commands with `@commands.hybrid_command()` when needed
 
-3. **No Manual Registration Needed (Auto-load):**  
-   Your bot is configured to automatically load all `.py` files from the `cogs` directory (thanks to the loop in `bot.py`). This means you don’t need to manually register each new cog. Once the file is created and saved in the `cogs` folder, the bot will load it automatically the next time it runs.
+3. **Error Handling:**
+   ```python
+   @commands.Cog.listener()
+   async def on_command_error(self, ctx, error):
+       if isinstance(error, commands.CommandOnCooldown):
+           await ctx.send(f"Please wait {error.retry_after:.2f}s before using this command again.")
+       elif isinstance(error, commands.MissingPermissions):
+           await ctx.send("You don't have permission to use this command.")
+   ```
 
 ## Using `@commands.cooldown`
 

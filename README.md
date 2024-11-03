@@ -1,88 +1,68 @@
-
 # Discord Bot Project with Ollama (llama3.2)
 
 ## Description
 
-Aura is a Discord bot built using the `discord.py` library and powered by the Ollama large language model. Aura offers a suite of features designed to enhance user interaction and provide entertainment within a Discord server. It leverages SQLite for persistent storage of user data, including birthdays, conversation history, and command logs. The bot is designed to be modular, with each feature set implemented as a separate "cog" for easy maintenance and expansion. 
+Aura is a Discord bot built using the `discord.py` library and powered by the Ollama large language model. It offers a suite of features designed to enhance user interaction and provide entertainment within Discord servers. The bot leverages SQLite for persistent storage of user data and is built with a modular architecture using cogs.
 
-# AURA Features
+## Key Features
 
-AURA provides a variety of features categorized into the following sections:
+- **AI Chat Integration**: Engage in conversations with LLaMA 3.2 through Ollama
+- **User Management**: Track birthdays, user profiles, and server information
+- **Gaming System**: Multiple games including:
+  - Rock-Paper-Scissors with betting
+  - Dice rolling and duels
+  - Virtual currency (AURAcoin) system
+  - More games in development (Blackjack, Fishing, etc.)
 
-## Chat and AI Interaction:
-- **Chat with LLaMA**: Use the `/chat` command to converse with the LLaMA language model.
-- **System Prompt Setting**: Customize the initial system prompt using the `/set_prompt` command.
-- **Conversation Memory Management**: Reset your conversation history with `/reset_memory`.
+## Quick Start
 
-## Server Information and User Profiles:
-- **Server Insights**: Use `/serverinfo` to get detailed server information such as server ID, member count, and creation date.
-- **User Profiles**: View comprehensive user profiles using `/whois`, displaying details like user ID, status, and join date.
+1. **Prerequisites**
+   ```bash
+   # Install Python 3.7+
+   # Install Ollama from https://ollama.ai/
+   
+   # Install dependencies
+   pip install -r requirements.txt
+   
+   # Start Ollama server
+   ollama serve
+   ```
 
-## Games and Entertainment:
-- **Rock-Paper-Scissors**: Play Rock-Paper-Scissors with AURAcoin bets.
-  - `/rps_challenge @[user] [amount]`: Challenge a user.
-  - `/rps_accept`: Accept a challenge.
-  - `/rps_decline`: Decline a challenge.
-  - `/rps_choice [choice]`: Make your choice of rock, paper, or scissors.
-  - `/rps_rules`: View the rules.
+2. **Configuration**
+   ```bash
+   # Create token.env file
+   echo "DISCORD_TOKEN=YOUR_DISCORD_TOKEN" > token.env
+   
+   # Initialize database
+   mkdir -p group_memories
+   touch group_memories/aura_memory.db
+   ```
 
-- **Dice Rolling**: Roll virtual dice with `/roll` using formats like `NdN` and `NdN+M`.
-- **Coin Flip**: Flip a virtual coin using `/coinflip`.
-- **Dice Duels**: Bet AURAcoin in dice duels.
-  - `/dice_duel_challenge @[user] [amount] [dice]`: Challenge a user.
-  - `/dice_duel_accept`: Accept a duel.
-  - `/dice_duel_decline`: Decline a duel.
-  - `/dice_duel_cancel`: Cancel your challenge.
+3. **Launch**
+   ```bash
+   python bot.py
+   ```
 
-- **Duels**: Challenge users to duels.
-  - `/duel_challenge @[user] [amount]`: Start a duel.
-  - `/duel_accept`: Accept a duel.
-  - `/duel_decline`: Decline a duel.
-  - `/duel_attack`: Attack during your turn.
-  - `/duel_leaderboard`: View the duel leaderboard.
-  - `/duel_rules`: View the rules.
+## Command Usage
 
-## Birthdays:
-- **Birthday Management**: Set your birthday with `/set_birthday [date]` (format: YYYY-MM-DD).
-- **Birthday Countdown**: Check the countdown to a user's birthday using `/birthday_countdown`, optionally mentioning another user with `@[user]`.
-- **Birthday Wishes**: AURA automatically sends birthday wishes on users' birthdays.
+Use slash commands in Discord to interact with AURA:
 
-## AURAcoin:
-- **AURAcoin**: Virtual currency used in various games within AURA.
+### Chat Commands
+- `/chat` - Talk with LLaMA
+- `/set_prompt` - Customize AI behavior
+- `/reset_memory` - Clear chat history
 
-## Other Games (Under Development):
-- Blackjack
-- Fishing
-- LLM Trivia
-- Lottery
-- Roulette
-- Slots
+### User Commands
+- `/serverinfo` - View server details
+- `/whois` - Check user profiles
+- `/set_birthday` - Set your birthday
 
+### Games
+- `/rps_challenge @user amount` - Start Rock-Paper-Scissors
+- `/roll NdN+M` - Roll dice (e.g., 2d6+3)
+- `/duel_challenge @user amount` - Begin a duel
 
-## Installation and Setup
-
-1.  **Install Python:** Ensure you have Python 3.7 or later installed on your system.
-2.  **Install Required Libraries:** Install the necessary Python libraries using pip:
-    ```bash
-    pip install -r requirements.txt
-    ```
-3.  **Set up Ollama:**
-    *   Download and install Ollama from [https://ollama.ai/](https://ollama.ai/)
-    *   Start the Ollama server by running `ollama serve` in your terminal.
-4.  **Discord Bot Token:**
-    *   Create a Discord bot account and obtain a bot token.
-    *   Create a file named `token.env` in the root directory of the project and add the following line, replacing `YOUR_DISCORD_TOKEN` with your actual token:
-        ```
-        DISCORD_TOKEN=YOUR_DISCORD_TOKEN
-        ```
-5.  **Database Setup:**
-    *   Create a SQLite database file named `aura_memory.db` in the `group_memories` folder.
-    *   Ensure the database file path is correctly specified in the bot's code.
-6.  **Run the Bot:** Execute the `bot.py` file to start the Discord bot.
-
-## Usage
-
-Once the bot is running and connected to your Discord server, you can use the slash commands provided by each cog. Type `/` in a Discord channel to see a list of available commands.
+[Additional commands and documentation...]
 
 ## Cogs
 ## Modular Structure with Cogs

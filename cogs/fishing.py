@@ -5,6 +5,8 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 import sqlite3
+from discord.app_commands import checks
+from discord import ui
 
 class Fishing(commands.Cog):
     """
@@ -44,6 +46,9 @@ class Fishing(commands.Cog):
     @discord.app_commands.describe(quantity="The number of bait to purchase.")
     async def buy_bait(self, interaction: discord.Interaction, quantity: int):
         """Allows a user to buy bait using AURAcoin."""
+        if not isinstance(quantity, int) or quantity <= 0:
+            await interaction.response.send_message("Please enter a valid positive number of bait to purchase.", ephemeral=True)
+            return
         user = interaction.user
         user_id = user.id
         bait_price = 5  # Set bait price to 5 AC per unit
@@ -96,6 +101,7 @@ class Fishing(commands.Cog):
             print(f"Error in /buy_bait command: {str(e)}")
 
     @discord.app_commands.command(name="fish", description="Go fishing to catch fish.")
+    @discord.app_commands.checks.cooldown(1, 30)  # One use every 30 seconds
     async def fish(self, interaction: discord.Interaction):
         """Allows a user to go fishing using their bait."""
         user = interaction.user
@@ -151,6 +157,21 @@ class Fishing(commands.Cog):
             await interaction.followup.send(f"An error occurred: {str(e)}")
             print(f"Error in /fish command: {str(e)}")
 
+    @fish.error
+    async def fish_error(self, interaction: discord.Interaction, error):
+        """Handle errors for the fish command."""
+        if isinstance(error, discord.app_commands.CommandOnCooldown):
+            seconds = int(error.retry_after)
+            await interaction.response.send_message(
+                f"You need to wait {seconds} seconds before fishing again!", 
+                ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                f"An error occurred: {str(error)}", 
+                ephemeral=True
+            )
+
     def simulate_fishing(self):
         """Simulates fishing and returns a caught fish."""
         # Define fish types with their rarity and value
@@ -202,10 +223,14 @@ class Fishing(commands.Cog):
             # Display the inventory
             if fish_inventory:
                 inventory_message = "**Your Fishing Inventory:**\n"
+                total_value = 0
                 for row in fish_inventory:
                     fish_name = row['fish_name']
                     quantity = row['quantity']
-                    inventory_message += f"- {fish_name}: {quantity}\n"
+                    value = self.get_fish_value(fish_name)
+                    total_value += value * quantity
+                    inventory_message += f"- {fish_name}: {quantity} (Worth: {value} AC each)\n"
+                inventory_message += f"\nTotal Value: {total_value} AC"
                 await interaction.followup.send(inventory_message)
             else:
                 await interaction.followup.send("Your fishing inventory is empty.")
@@ -236,31 +261,51 @@ class Fishing(commands.Cog):
                 await interaction.followup.send("You have no fish to sell.")
                 return
 
-            total_earnings = 0
-            for row in fish_inventory:
-                fish_name = row['fish_name']
-                quantity = row['quantity']
-                # Get the value of the fish
-                fish_value = self.get_fish_value(fish_name)
-                earnings = fish_value * quantity
-                total_earnings += earnings
+            # Calculate total value first
+            total_earnings = sum(self.get_fish_value(row['fish_name']) * row['quantity'] for row in fish_inventory)
+            
+            # Create confirmation view
+            class ConfirmSale(ui.View):
+                def __init__(self):
+                    super().__init__(timeout=30)
+                    self.value = None
 
-            # Update the user's balance
-            balance = self.get_auracoin_balance(user_id)
-            new_balance = balance + total_earnings
-            timestamp = datetime.now().isoformat()
-            with self.conn:
-                self.conn.execute('''
-                    INSERT INTO auracoin_ledger (player_id, change_amount, balance, transaction_type, timestamp)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (user_id, total_earnings, new_balance, 'fish_sale', timestamp))
+                @ui.button(label="Confirm Sale", style=discord.ButtonStyle.green)
+                async def confirm(self, interaction: discord.Interaction, button: ui.Button):
+                    self.value = True
+                    self.stop()
 
-                # Remove the fish from the inventory
-                self.conn.execute('''
-                    DELETE FROM fishing_inventory WHERE user_id = ? AND fish_name != 'Bait'
-                ''', (user_id,))
+                @ui.button(label="Cancel", style=discord.ButtonStyle.grey)
+                async def cancel(self, interaction: discord.Interaction, button: ui.Button):
+                    self.value = False
+                    self.stop()
 
-            await interaction.followup.send(f"You sold all your fish for {total_earnings} AC! Your new balance is {new_balance} AC.")
+            view = ConfirmSale()
+            await interaction.followup.send(
+                f"Are you sure you want to sell all your fish for {total_earnings} AC?",
+                view=view
+            )
+
+            await view.wait()
+            if view.value:
+                # Update the user's balance
+                balance = self.get_auracoin_balance(user_id)
+                new_balance = balance + total_earnings
+                timestamp = datetime.now().isoformat()
+                with self.conn:
+                    self.conn.execute('''
+                        INSERT INTO auracoin_ledger (player_id, change_amount, balance, transaction_type, timestamp)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (user_id, total_earnings, new_balance, 'fish_sale', timestamp))
+
+                    # Remove the fish from the inventory
+                    self.conn.execute('''
+                        DELETE FROM fishing_inventory WHERE user_id = ? AND fish_name != 'Bait'
+                    ''', (user_id,))
+
+                await interaction.followup.send(f"You sold all your fish for {total_earnings} AC! Your new balance is {new_balance} AC.")
+            else:
+                await interaction.followup.send("Fish sale cancelled.")
 
             # Log the command usage
             self.log_command_usage(interaction, "sell_fish", "", f"Sold fish for {total_earnings} AC")
