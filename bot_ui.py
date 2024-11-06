@@ -75,21 +75,30 @@ class BotControlUI:
         log_frame = ttk.LabelFrame(self.root, text="Bot Logs")
         log_frame.pack(pady=10, padx=10, fill='both', expand=True)
 
+        # Configure the ScrolledText widget with a higher update frequency
         self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, height=30)
         self.log_text.pack(padx=5, pady=5, fill='both', expand=True)
+        # Enable real-time updates
+        self.log_text.configure(state='normal')
 
     def setup_queue_handler(self):
         def check_queue():
             while True:
                 try:
                     message = self.log_queue.get_nowait()
+                    # Delete the last line if it's a carriage return update
+                    if message.startswith('\r'):
+                        self.log_text.delete("end-2c linestart", "end-1c")
                     self.log_text.insert(tk.END, message)
                     self.log_text.see(tk.END)
+                    # Force update the widget
+                    self.log_text.update_idletasks()
                 except queue.Empty:
                     break
-            self.root.after(100, check_queue)
+            # Increase the check frequency to 10ms for smoother updates
+            self.root.after(10, check_queue)
         
-        self.root.after(100, check_queue)
+        self.root.after(10, check_queue)
 
     def start_bot(self):
         if self.bot is not None:

@@ -12,6 +12,7 @@ import uuid
 import sqlite3
 from datetime import datetime
 from diffusers import StableDiffusion3Pipeline
+from dotenv import load_dotenv
 
 # Configure logging
 logger = logging.getLogger('ImageGenerator')
@@ -24,12 +25,17 @@ logger.addHandler(handler)
 IMAGE_SAVE_DIRECTORY = r"C:\Users\ericj\Documents\GitHub\DiscordBot\AURADiscordBot\AURA\generated_images"
 os.makedirs(IMAGE_SAVE_DIRECTORY, exist_ok=True)
 
+# Add after other initial setup code
+load_dotenv('token.env')
+HUGGINGFACE_TOKEN = os.getenv('HUGGINGFACE_TOKEN')
+
 class ImageGenerator(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.model_path = "stabilityai/stable-diffusion-3-medium-diffusers"
         self.model_loaded = False
         self.semaphore = Semaphore(2)
+        self.pipe = None
 
         self.db_path = pathlib.Path('./imagegenerator.db')
         self.setup_database()
@@ -37,64 +43,93 @@ class ImageGenerator(commands.Cog):
         asyncio.create_task(self.load_model())
 
     def setup_database(self):
-        self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
-        with self.conn:
-            self.conn.execute('''
-                CREATE TABLE IF NOT EXISTS logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    log_type TEXT NOT NULL,
-                    log_message TEXT NOT NULL,
-                    guild_id INTEGER,
-                    channel_id INTEGER,
-                    user_id INTEGER,
-                    username TEXT,
-                    timestamp TEXT NOT NULL
-                )
-            ''')
-        logger.info("Database setup completed.")
+        conn = sqlite3.connect(str(self.db_path))
+        try:
+            with conn:
+                conn.execute('''
+                    CREATE TABLE IF NOT EXISTS logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        log_type TEXT NOT NULL,
+                        log_message TEXT NOT NULL,
+                        guild_id INTEGER,
+                        channel_id INTEGER,
+                        user_id INTEGER,
+                        username TEXT,
+                        timestamp TEXT NOT NULL
+                    )
+                ''')
+            logger.info("Database setup completed.")
+        finally:
+            conn.close()
 
     def log_event(self, log_type, message, guild_id=None, channel_id=None, user_id=None, username=None):
+        conn = sqlite3.connect(str(self.db_path))
         timestamp = datetime.now().isoformat()
-        with self.conn:
-            self.conn.execute('''
+        with conn:
+            conn.execute('''
                 INSERT INTO logs (log_type, log_message, guild_id, channel_id, user_id, username, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (log_type, message, guild_id, channel_id, user_id, username, timestamp))
+        conn.close()
         logger.info(f"Logged event: {log_type} - {message}")
 
     async def load_model(self):
         try:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             logger.info(f"Loading Stable Diffusion model from {self.model_path} on {device}...")
+            
+            # Add more detailed logging about system state
+            logger.info(f"CUDA available: {torch.cuda.is_available()}")
+            if torch.cuda.is_available():
+                logger.info(f"CUDA device: {torch.cuda.get_device_name(0)}")
+                logger.info(f"CUDA memory allocated: {torch.cuda.memory_allocated(0)}")
+            
             self.pipe = StableDiffusion3Pipeline.from_pretrained(
                 self.model_path,
-                torch_dtype=torch.float32  # Use float32 for CPU compatibility
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                use_safetensors=True,
+                variant="fp16" if torch.cuda.is_available() else None,
+                token=HUGGINGFACE_TOKEN
             ).to(device)
+
+            # Enable memory efficient attention if using CUDA
+            if torch.cuda.is_available():
+                self.pipe.enable_attention_slicing()
+                self.pipe.enable_vae_slicing()
+            
             self.model_loaded = True
             logger.info("Stable Diffusion model loaded successfully.")
             self.log_event("MODEL_LOAD", f"Stable Diffusion model loaded on device: {device}")
         except Exception as e:
             logger.error(f"Failed to load Stable Diffusion model: {str(e)}")
+            logger.exception("Detailed error traceback:")  # This will log the full traceback
             self.log_event("MODEL_LOAD_FAILURE", f"Failed to load Stable Diffusion model: {str(e)}")
+            self.model_loaded = False  # Ensure this is set to False on failure
 
     @discord.app_commands.command(
         name="generate_image",
         description="Generate an image based on your prompt using the Stable Diffusion model."
     )
-    @discord.app_commands.describe(
-        prompt="The text prompt to generate the image.",
-        num_inference_steps="Number of inference steps for image generation.",
-        guidance_scale="Guidance scale for image generation."
-    )
     async def generate_image(
         self,
         interaction: discord.Interaction,
         prompt: str,
-        num_inference_steps: int = 50,
-        guidance_scale: float = 7.5
+        num_inference_steps: Optional[int] = 50,
+        guidance_scale: Optional[float] = 7.5
     ):
-        # Inform the user that the image generation has started
+        if not self.model_loaded or self.pipe is None:
+            await interaction.response.send_message("❌ The image generation model is still loading. Please try again in a few seconds.")
+            return
+
+        # Input validation
+        try:
+            num_inference_steps = int(num_inference_steps)
+            guidance_scale = float(guidance_scale)
+        except ValueError:
+            await interaction.response.send_message("❌ Invalid parameter values provided.")
+            return
+
+        # Only send the "generating" message if all checks pass
         await interaction.response.send_message("⏳ Generating your image... This might take a while.")
 
         guild_id = interaction.guild.id if interaction.guild else None
@@ -104,12 +139,6 @@ class ImageGenerator(commands.Cog):
 
         logger.info(f"Received image generation request from {username} (ID: {user_id}) with prompt: {prompt}")
         self.log_event("COMMAND_INVOKED", f"User {username} invoked /generate_image with prompt: {prompt}", guild_id, channel_id, user_id, username)
-
-        if not self.model_loaded:
-            await interaction.channel.send("❌ The image generation model is still loading. Please try again in a few seconds.")
-            logger.warning("Model not loaded yet when command was invoked.")
-            self.log_event("MODEL_NOT_LOADED", "Image generation command invoked before model was loaded.", guild_id, channel_id, user_id, username)
-            return
 
         try:
             async with self.semaphore:
