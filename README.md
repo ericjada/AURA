@@ -111,14 +111,6 @@ If you enjoy my work and would like to support my projects, consider making a do
     <br />
 </p>
 <br>
-<p align="center">
-    <img src="./group_memories/AURA_Images/btc-address.png" alt="Donate BTC via QR code" />
-    <br />
-    <a href="bitcoin:bc1qwky9tu333yszy0jxep93aqnfuh3qw5uykwrk3x">Donate BTC</a>
-    <br />
-</p>
-<br>\
-<br>
 Thank you for your support!
 
 ## Collaboration and AI Integration
